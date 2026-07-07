@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     # ── Database ────────────────────────────────────────────────
     DATABASE_URL: str = "sqlite:///./tridomain.db"
 
+    @property
+    def database_url(self) -> str:
+        return self.DATABASE_URL
+
     # ── JWT ─────────────────────────────────────────────────────
     JWT_SECRET_KEY: str = "change-this-to-a-long-random-secret"
     JWT_ALGORITHM: str = "HS256"
