@@ -1,12 +1,13 @@
-import { useEffect } from 'react'
+import { useEffect, useState, type ChangeEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Loader2, Save, User } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
+import { useLanguage } from '@/contexts/LanguageContext'
+import { authService, getErrorMessage } from '@/services'
 import { useProfile, useUpdateProfile, useCreateProfile } from '@/hooks'
-import { getErrorMessage } from '@/services'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,7 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { FullProfile } from '@/types'
 
@@ -51,9 +52,11 @@ type ProfileForm = z.infer<typeof profileSchema>
 
 export function ProfilePage() {
   const { user } = useAuth()
+  const { t } = useLanguage()
   const { data: profile, isLoading } = useProfile()
   const updateProfile = useUpdateProfile()
   const createProfile = useCreateProfile()
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   const { register, handleSubmit, reset, setValue, watch } = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
@@ -72,6 +75,10 @@ export function ProfilePage() {
       })
     }
   }, [profile, reset])
+
+  useEffect(() => {
+    setAvatarUrl(authService.getAvatar())
+  }, [])
 
   const onSubmit = async (data: ProfileForm) => {
     const payload: FullProfile = {
@@ -94,10 +101,30 @@ export function ProfilePage() {
       } else {
         await createProfile.mutateAsync(payload)
       }
-      toast.success('Profile saved successfully')
+      toast.success(t('profileSaved'))
     } catch (err) {
       toast.error(getErrorMessage(err))
     }
+  }
+
+  const handleAvatarUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      const url = reader.result as string
+      authService.saveAvatar(url)
+      setAvatarUrl(url)
+      toast.success(t('avatarUploaded'))
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleAvatarRemove = () => {
+    authService.clearAvatar()
+    setAvatarUrl(null)
+    toast.success(t('avatarDeleted'))
   }
 
   const initials = user?.name?.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'U'
@@ -123,14 +150,34 @@ export function ProfilePage() {
       <Card>
         <CardContent className="flex items-center gap-6 p-6">
           <Avatar className="h-20 w-20">
-            <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white text-2xl">
-              {initials}
-            </AvatarFallback>
+            {avatarUrl ? (
+              <AvatarImage src={avatarUrl} alt="Avatar" />
+            ) : (
+              <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white text-2xl">
+                {initials}
+              </AvatarFallback>
+            )}
           </Avatar>
           <div>
             <h2 className="text-xl font-bold">{user?.name}</h2>
             <p className="text-muted-foreground">{user?.email}</p>
-            <Button variant="outline" size="sm" className="mt-2">Upload Avatar</Button>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <label htmlFor="avatarUpload" className="inline-flex cursor-pointer items-center rounded-full border border-input px-3 py-1 text-sm font-medium transition hover:bg-muted">
+                {t('uploadAvatar')}
+              </label>
+              <input
+                id="avatarUpload"
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={handleAvatarUpload}
+              />
+              {avatarUrl ? (
+                <Button variant="outline" size="sm" onClick={handleAvatarRemove}>
+                  {t('deleteAvatar')}
+                </Button>
+              ) : null}
+            </div>
           </div>
         </CardContent>
       </Card>
