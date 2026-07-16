@@ -35,5 +35,24 @@ def authenticate_user(db: Session, email: str, password: str) -> User:
     return user
 
 
+def request_password_reset(db: Session, email: str) -> None:
+    user = db.query(User).filter(User.email == email).first()
+    # In development mode, return success for any email address.
+    # A real implementation would generate a token and send an email.
+    if user:
+        # Token generation placeholder; no persistent token storage is implemented.
+        token = create_access_token(data={"sub": user.id, "email": user.email})
+        print(f"[password reset] token for {email}: {token}")
+
+
+def change_password(db: Session, user_id: str, current_password: str, new_password: str) -> None:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not verify_password(current_password, user.password_hash):
+        raise ValueError("Current password is incorrect")
+    user.password_hash = hash_password(new_password)
+    db.add(user)
+    db.commit()
+
+
 def issue_token_for_user(user: User) -> str:
     return create_access_token(data={"sub": user.id, "email": user.email})

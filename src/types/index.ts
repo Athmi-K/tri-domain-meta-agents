@@ -3,12 +3,22 @@ export interface User {
   name: string
   email: string
   created_at: string
+  avatar_url?: string
 }
 
 export interface Token {
   access_token: string
   token_type: string
 }
+
+export interface NotificationPreferences {
+  email: boolean
+  push: boolean
+  reports: boolean
+  insights: boolean
+}
+
+export type LanguageCode = 'en' | 'hi' | 'kn'
 
 export interface RegisterRequest {
   name: string

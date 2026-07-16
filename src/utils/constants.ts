@@ -5,6 +5,10 @@ export const STORAGE_KEYS = {
   REFRESH_TOKEN: 'tridomain_refresh_token',
   USER: 'tridomain_user',
   THEME: 'tridomain_theme',
+  LANGUAGE: 'tridomain_language',
+  NOTIFICATIONS: 'tridomain_notifications',
+  TWO_FACTOR: 'tridomain_two_factor',
+  AVATAR_URL: 'tridomain_avatar_url',
 } as const
 
 export const ROUTES = {
