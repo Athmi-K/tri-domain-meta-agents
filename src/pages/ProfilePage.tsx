@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent } from 'react'
+import { useEffect, type ChangeEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -57,9 +57,8 @@ export function ProfilePage() {
   const { data: profile, isLoading } = useProfile()
   const updateProfile = useUpdateProfile()
   const createProfile = useCreateProfile()
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
-  const { register, handleSubmit, reset } = useForm<ProfileForm>({
+  const { register, handleSubmit, reset, setValue, watch } = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
   })
 
@@ -189,7 +188,7 @@ export function ProfilePage() {
                 className="sr-only"
                 onChange={handleAvatarUpload}
               />
-              {avatarUrl ? (
+              {user?.avatar_url ? (
                 <Button variant="outline" size="sm" onClick={handleAvatarRemove}>
                   {t('deleteAvatar')}
                 </Button>
