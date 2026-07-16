@@ -37,6 +37,10 @@ class TwoFactorRequest(BaseModel):
     current_password: str | None = None
 
 
+class UserUpdateRequest(BaseModel):
+    name: str | None = None
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"

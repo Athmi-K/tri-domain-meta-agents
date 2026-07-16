@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { FullProfile } from '@/types'
 
 const profileSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
   general: z.object({
     age: z.coerce.number().min(1).max(120).optional(),
     gender: z.string().optional(),
@@ -65,6 +66,7 @@ export function ProfilePage() {
   useEffect(() => {
     if (profile) {
       reset({
+        name: user?.name || '',
         general: profile.general,
         career: {
           ...profile.career,
@@ -73,8 +75,12 @@ export function ProfilePage() {
         health: profile.health,
         finance: profile.finance,
       })
+    } else {
+      reset({
+        name: user?.name || '',
+      })
     }
-  }, [profile, reset])
+  }, [profile, reset, user])
 
   useEffect(() => {
     setAvatarUrl(authService.getAvatar())
@@ -96,6 +102,11 @@ export function ProfilePage() {
     }
 
     try {
+      if (data.name && data.name !== user?.name) {
+        const updatedUser = await authService.updateCurrentUser(data.name)
+        authService.saveUser(updatedUser)
+        setUser(updatedUser)
+      }
       if (profile && Object.keys(profile).length > 0) {
         await updateProfile.mutateAsync(payload)
       } else {
@@ -212,6 +223,10 @@ export function ProfilePage() {
                 <CardDescription>Basic information used across all domains</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Name</Label>
+                  <Input {...register('name')} placeholder="John Doe" />
+                </div>
                 <div className="space-y-2">
                   <Label>Age</Label>
                   <Input type="number" {...register('general.age')} placeholder="25" />

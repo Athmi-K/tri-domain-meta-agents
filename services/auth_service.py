@@ -58,7 +58,20 @@ def set_user_avatar(db: Session, user_id: str, avatar_url: str) -> User:
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise ValueError("User not found")
-    user.avatar_url = avatar_url
+    user.avatar_url = avatar_url or None
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def update_user_name(db: Session, user_id: str, name: str) -> User:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise ValueError("User not found")
+    if not name.strip():
+        raise ValueError("Name cannot be empty")
+    user.name = name.strip()
     db.add(user)
     db.commit()
     db.refresh(user)

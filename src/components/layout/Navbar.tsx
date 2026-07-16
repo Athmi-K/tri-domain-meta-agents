@@ -84,9 +84,13 @@ export function Navbar({ sidebarWidth }: NavbarProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                 <Avatar className="h-9 w-9">
-                  <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white text-xs">
-                    {initials}
-                  </AvatarFallback>
+                  {user?.avatar_url ? (
+                    <AvatarImage src={user.avatar_url} alt="User avatar" />
+                  ) : (
+                    <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white text-xs">
+                      {initials}
+                    </AvatarFallback>
+                  )}
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>

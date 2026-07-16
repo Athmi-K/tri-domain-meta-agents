@@ -18,6 +18,7 @@ from schemas.auth import (
     ChangePasswordRequest,
     AvatarUploadRequest,
     TwoFactorRequest,
+    UserUpdateRequest,
 )
 from services.auth_service import (
     register_user,
@@ -27,6 +28,7 @@ from services.auth_service import (
     change_password,
     set_user_avatar,
     set_two_factor_enabled,
+    update_user_name,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -101,6 +103,21 @@ def update_two_factor(
             payload.enabled,
             payload.current_password,
         )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return user
+
+
+@router.put("/me", response_model=UserOut)
+def update_current_user(
+    payload: UserUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if payload.name is None:
+        return current_user
+    try:
+        user = update_user_name(db, current_user.id, payload.name)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return user

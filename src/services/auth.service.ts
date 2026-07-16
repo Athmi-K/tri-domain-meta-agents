@@ -41,6 +41,11 @@ export const authService = {
     return res.data
   },
 
+  async updateCurrentUser(name: string): Promise<User> {
+    const res = await api.put<User>('/auth/me', { name })
+    return res.data
+  },
+
   async setTwoFactorEnabled(enabled: boolean, current_password?: string): Promise<User> {
     const res = await api.post<User>('/auth/two-factor', {
       enabled,
