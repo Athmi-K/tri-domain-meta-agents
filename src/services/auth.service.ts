@@ -18,6 +18,11 @@ export const authService = {
     return res.data
   },
 
+  async me(): Promise<User> {
+    const res = await api.get<User>('/auth/me')
+    return res.data
+  },
+
   saveToken(token: Token): void {
     localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token.access_token)
   },
@@ -36,10 +41,14 @@ export const authService = {
     }
   },
 
-  logout(): void {
+  clearStorage(): void {
     localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN)
     localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN)
     localStorage.removeItem(STORAGE_KEYS.USER)
+  },
+
+  logout(): void {
+    this.clearStorage()
   },
 
   isAuthenticated(): boolean {

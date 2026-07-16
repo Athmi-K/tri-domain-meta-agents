@@ -18,37 +18,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const stored = authService.getStoredUser()
-    if (stored && authService.isAuthenticated()) {
-      setUser(stored)
+    const initialize = async () => {
+      const stored = authService.getStoredUser()
+      if (authService.isAuthenticated()) {
+        try {
+          const fetched = await authService.me()
+          authService.saveUser(fetched)
+          setUser(fetched)
+        } catch {
+          authService.clearStorage()
+          setUser(null)
+        }
+      } else if (stored) {
+        setUser(stored)
+      }
+      setIsLoading(false)
     }
-    setIsLoading(false)
+
+    initialize()
   }, [])
 
   const login = async (email: string, password: string) => {
     const token = await authService.login(email, password)
     authService.saveToken(token)
-    const stored = authService.getStoredUser()
-    if (!stored) {
-      const newUser: User = {
-        id: 'temp',
-        name: email.split('@')[0],
-        email,
-        created_at: new Date().toISOString(),
-      }
-      authService.saveUser(newUser)
-      setUser(newUser)
-    } else {
-      setUser(stored)
-    }
+    const fetched = await authService.me()
+    authService.saveUser(fetched)
+    setUser(fetched)
   }
 
   const register = async (name: string, email: string, password: string) => {
-    const newUser = await authService.register({ name, email, password })
-    authService.saveUser(newUser)
-    const token = await authService.login(email, password)
-    authService.saveToken(token)
-    setUser(newUser)
+    await authService.register({ name, email, password })
   }
 
   const logout = () => {

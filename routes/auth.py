@@ -8,6 +8,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from core.database import get_db
+from core.security import get_current_user
+from models.user import User
 from schemas.auth import UserCreate, UserOut, Token
 from services.auth_service import register_user, authenticate_user, issue_token_for_user
 
@@ -36,3 +38,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
     token = issue_token_for_user(user)
     return {"access_token": token, "token_type": "bearer"}
+
+
+@router.get("/me", response_model=UserOut)
+def me(current_user: User = Depends(get_current_user)):
+    return current_user
