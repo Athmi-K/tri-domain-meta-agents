@@ -1,12 +1,15 @@
 import os
 import asyncio
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from concurrent.futures import ThreadPoolExecutor
+from sqlalchemy.exc import SQLAlchemyError
+from starlette.requests import Request
 import agents.career_agent as career
 import agents.health_agent as health
 import agents.finance_agent as finance
@@ -27,6 +30,29 @@ from routes.profile import router as profile_router
 from routes.memory import router as memory_router
 from routes.chat import router as chat_router
 from routes.reports import router as reports_router
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "detail": "Invalid request payload",
+            "errors": exc.errors()
+        },
+    )
+
+
+@app.exception_handler(SQLAlchemyError)
+async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "detail": "Database error",
+            "error": exc.__class__.__name__,
+            "message": str(exc),
+        },
+    )
 
 app.include_router(auth_router)
 app.include_router(profile_router)

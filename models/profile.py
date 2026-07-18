@@ -5,11 +5,12 @@ One-time-entry profile tables. Each user has at most one row in each of
 these four tables — entered once, updated thereafter, and loaded on every
 chat request to personalize responses (see services/context_builder.py).
 """
+import json
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, JSON
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
 
 from core.database import Base
@@ -46,12 +47,13 @@ class CareerProfile(Base):
         UUID(as_uuid=False), ForeignKey("users.id"), nullable=False, unique=True, index=True
     )
     education = Column(String(120), nullable=True)
-    current_skills = Column(JSON, nullable=True, default=list)
+    current_skills = Column(ARRAY(String), nullable=True, default=list)
     target_role = Column(String(120), nullable=True)
     experience_level = Column(String(50), nullable=True)  # intern/junior/mid/senior
     career_goal = Column(String(255), nullable=True)
     preferred_roles = Column(String(255), nullable=True)
     resume = Column(String(2000), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", back_populates="career_profile")
@@ -73,6 +75,7 @@ class HealthProfile(Base):
     workout = Column(String(120), nullable=True)
     health_goals = Column(String(255), nullable=True)
     water_intake = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", back_populates="health_profile")
@@ -93,6 +96,7 @@ class FinanceProfile(Base):
     investment_experience = Column(String(50), nullable=True)  # beginner/intermediate/advanced
     financial_goals = Column(String(255), nullable=True)
     budget = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", back_populates="finance_profile")

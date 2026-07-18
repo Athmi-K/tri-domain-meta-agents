@@ -6,8 +6,9 @@ single API call, since the frontend collects them together in one
 onboarding form. All fields are optional on update (partial updates).
 """
 from datetime import datetime
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import List, Optional, Union
+from pydantic import BaseModel, field_validator
+import json
 
 
 class GeneralProfileIn(BaseModel):
@@ -26,6 +27,25 @@ class CareerProfileIn(BaseModel):
     career_goal: Optional[str] = None
     preferred_roles: Optional[str] = None
     resume: Optional[str] = None
+
+    @field_validator('current_skills', mode='before')
+    def parse_current_skills(cls, value: Union[str, list, None]):
+        if value is None:
+            return None
+        if isinstance(value, list):
+            return [str(item).strip() for item in value if item is not None]
+        if isinstance(value, str):
+            trimmed = value.strip()
+            if not trimmed:
+                return None
+            try:
+                parsed = json.loads(trimmed)
+            except ValueError:
+                parsed = [item.strip() for item in trimmed.split(',') if item.strip()]
+            if isinstance(parsed, list):
+                return [str(item).strip() for item in parsed if item is not None]
+            raise ValueError('current_skills must be a list of strings or a JSON array string')
+        return value
 
 
 class HealthProfileIn(BaseModel):

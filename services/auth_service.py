@@ -3,12 +3,25 @@ app/services/auth_service.py
 """
 from sqlalchemy.orm import Session
 
+from core.config import settings
 from core.security import hash_password, verify_password, create_access_token
 from models.user import User
 from schemas.auth import UserCreate
 
 
+def _is_google_email(email: str) -> bool:
+    if '@' not in email:
+        return False
+    domain = email.split('@', 1)[1].lower()
+    return domain in settings.allowed_google_email_domains
+
+
 def register_user(db: Session, user_in: UserCreate) -> User:
+    if not _is_google_email(user_in.email):
+        raise ValueError(
+            "Registration requires a Google account email address (for example, @gmail.com)."
+        )
+
     existing = db.query(User).filter(User.email == user_in.email).first()
     if existing:
         raise ValueError("Email already registered")

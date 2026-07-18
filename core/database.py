@@ -33,29 +33,40 @@ def init_db():
     from models import user, profile, conversation, memory, report  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
-    _apply_sqlite_schema_fixes()
+    _apply_schema_fixes()
 
 
-def _apply_sqlite_schema_fixes():
-    """Apply missing SQLite schema columns when the table already exists."""
+def _apply_schema_fixes():
+    """Apply missing schema columns when tables already exist."""
     inspector = inspect(engine)
+    dialect = engine.dialect.name
+    timestamp_type = 'TIMESTAMP' if dialect == 'postgresql' else 'DATETIME'
+
     if not inspector.has_table('users'):
         return
 
-    existing_columns = {column['name'] for column in inspector.get_columns('users')}
-    with engine.connect() as connection:
+    with engine.begin() as connection:
+        existing_columns = {column['name'] for column in inspector.get_columns('users')}
         if 'avatar_url' not in existing_columns:
             connection.execute(text('ALTER TABLE users ADD COLUMN avatar_url VARCHAR(1024)'))
         if 'updated_at' not in existing_columns:
-            connection.execute(text('ALTER TABLE users ADD COLUMN updated_at DATETIME'))
+            connection.execute(text(f'ALTER TABLE users ADD COLUMN updated_at {timestamp_type}'))
         if 'two_factor_enabled' not in existing_columns:
             connection.execute(text('ALTER TABLE users ADD COLUMN two_factor_enabled BOOLEAN'))
         if 'two_factor_secret' not in existing_columns:
             connection.execute(text('ALTER TABLE users ADD COLUMN two_factor_secret VARCHAR(255)'))
 
-    if inspector.has_table('career_profiles'):
-        career_columns = {column['name'] for column in inspector.get_columns('career_profiles')}
-        with engine.connect() as connection:
+        if inspector.has_table('user_profiles'):
+            profile_columns = {column['name'] for column in inspector.get_columns('user_profiles')}
+            if 'created_at' not in profile_columns:
+                connection.execute(text(f'ALTER TABLE user_profiles ADD COLUMN created_at {timestamp_type}'))
+            if 'updated_at' not in profile_columns:
+                connection.execute(text(f'ALTER TABLE user_profiles ADD COLUMN updated_at {timestamp_type}'))
+
+        if inspector.has_table('career_profiles'):
+            career_columns = {column['name'] for column in inspector.get_columns('career_profiles')}
+            if 'created_at' not in career_columns:
+                connection.execute(text(f'ALTER TABLE career_profiles ADD COLUMN created_at {timestamp_type}'))
             if 'education' not in career_columns:
                 connection.execute(text('ALTER TABLE career_profiles ADD COLUMN education VARCHAR(120)'))
             if 'preferred_roles' not in career_columns:
@@ -63,9 +74,10 @@ def _apply_sqlite_schema_fixes():
             if 'resume' not in career_columns:
                 connection.execute(text('ALTER TABLE career_profiles ADD COLUMN resume VARCHAR(2000)'))
 
-    if inspector.has_table('health_profiles'):
-        health_columns = {column['name'] for column in inspector.get_columns('health_profiles')}
-        with engine.connect() as connection:
+        if inspector.has_table('health_profiles'):
+            health_columns = {column['name'] for column in inspector.get_columns('health_profiles')}
+            if 'created_at' not in health_columns:
+                connection.execute(text(f'ALTER TABLE health_profiles ADD COLUMN created_at {timestamp_type}'))
             if 'medical_conditions' not in health_columns:
                 connection.execute(text('ALTER TABLE health_profiles ADD COLUMN medical_conditions VARCHAR(500)'))
             if 'lifestyle' not in health_columns:
@@ -77,9 +89,10 @@ def _apply_sqlite_schema_fixes():
             if 'water_intake' not in health_columns:
                 connection.execute(text('ALTER TABLE health_profiles ADD COLUMN water_intake FLOAT'))
 
-    if inspector.has_table('finance_profiles'):
-        finance_columns = {column['name'] for column in inspector.get_columns('finance_profiles')}
-        with engine.connect() as connection:
+        if inspector.has_table('finance_profiles'):
+            finance_columns = {column['name'] for column in inspector.get_columns('finance_profiles')}
+            if 'created_at' not in finance_columns:
+                connection.execute(text(f'ALTER TABLE finance_profiles ADD COLUMN created_at {timestamp_type}'))
             if 'investments' not in finance_columns:
                 connection.execute(text('ALTER TABLE finance_profiles ADD COLUMN investments VARCHAR(255)'))
             if 'financial_goals' not in finance_columns:

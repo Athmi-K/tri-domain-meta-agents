@@ -5,8 +5,16 @@ for a given query. Used by career_agent at runtime.
 """
 import os
 import pickle
-import faiss
-import numpy as np
+
+try:
+    import faiss
+except ImportError:  # pragma: no cover
+    faiss = None
+
+try:
+    import numpy as np
+except ImportError:  # pragma: no cover
+    np = None
 
 try:
     from sentence_transformers import SentenceTransformer
@@ -24,11 +32,12 @@ _meta  = None
 
 def _load():
     global _model, _index, _meta
+    if SentenceTransformer is None or faiss is None or np is None:
+        raise ImportError(
+            "RAG retrieval dependencies are not installed. Install faiss, numpy, and sentence-transformers to enable RAG retrieval."
+        )
+
     if _model is None:
-        if SentenceTransformer is None:
-            raise ImportError(
-                "sentence-transformers is not installed. Install it to enable RAG retrieval."
-            )
         print("[RAG] Loading retriever model...")
         _model = SentenceTransformer(MODEL_NAME)
     if _index is None:
