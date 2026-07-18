@@ -3,6 +3,9 @@ Meta LangChain Agent
 Routes queries to the correct LangChain domain agents.
 Drop-in replacement for the existing meta_agent in main.py.
 """
+import agents.career_agent as career_original
+import agents.health_agent as health_original
+import agents.finance_agent as finance_original
 from langchain_agents.career_lc_agent import run as career_run
 from langchain_agents.health_lc_agent import run as health_run
 from langchain_agents.finance_lc_agent import run as finance_run
@@ -12,6 +15,12 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 executor = ThreadPoolExecutor(max_workers=3)
+
+FALLBACK_AGENTS = {
+    "career": career_original.run,
+    "health": health_original.run,
+    "finance": finance_original.run,
+}
 
 async def meta_lc_agent(request) -> dict:
     """
@@ -69,12 +78,29 @@ async def meta_lc_agent(request) -> dict:
         for domain in domains if domain in agent_map
     ]
 
-    responses = await asyncio.gather(*futures)
+    results = await asyncio.gather(*futures, return_exceptions=True)
+    responses = []
+    for domain, result in zip(domains, results):
+        if isinstance(result, Exception):
+            print(f"[LangChain Meta] {domain} agent failed: {result}")
+            fallback_fn = FALLBACK_AGENTS.get(domain)
+            if fallback_fn:
+                fallback = fallback_fn(request)
+                fallback["agent_type"] = "fallback"
+                responses.append(fallback)
+            else:
+                responses.append({
+                    "domain": domain,
+                    "error": "agent_failure",
+                    "message": f"{domain} agent failed and no fallback is available."
+                })
+        else:
+            responses.append(result)
 
     return {
         "status":            "success",
         "intent":            intent,
-        "responses":         list(responses),
+        "responses":         responses,
         "domains_activated": domains,
         "agent_framework":   "langchain"
     }
