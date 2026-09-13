@@ -9,7 +9,8 @@ import math
 from numbers import Real
 from typing import Any
 
-from tools.calculators import calculate_savings, fitness_score, skill_gap_analyzer
+from tools.calculators import calculate_savings, fitness_score
+from tools.career_tools import skill_gap_analyzer
 
 
 def _require_number(value: Any, name: str, minimum: float, maximum: float | None = None) -> float:

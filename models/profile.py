@@ -9,7 +9,7 @@ import json
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey
+from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey,Text
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
 
@@ -53,12 +53,11 @@ class CareerProfile(Base):
     career_goal = Column(String(255), nullable=True)
     preferred_roles = Column(String(255), nullable=True)
     resume = Column(String(2000), nullable=True)
+    resume_text = Column(Text, nullable=True)  # full extracted resume content, no length cap
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="career_profile")
-
-
 class HealthProfile(Base):
     __tablename__ = "health_profiles"
 

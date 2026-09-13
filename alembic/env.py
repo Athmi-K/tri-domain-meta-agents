@@ -16,7 +16,8 @@ fileConfig(config.config_file_name)
 # add your model's MetaData object here for 'autogenerate' support
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from core.database import Base
+from core.database import Base,engine
+from models import user, profile, conversation, memory, report, progress  # noqa: F401
 target_metadata = Base.metadata
 
 
@@ -28,13 +29,12 @@ def run_migrations_offline():
 
 
 def run_migrations_online():
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section),
-        prefix='sqlalchemy.',
-        poolclass=pool.NullPool,
-    )
-    with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+    with engine.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+        )
+
         with context.begin_transaction():
             context.run_migrations()
 

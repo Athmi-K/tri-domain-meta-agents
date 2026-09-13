@@ -9,8 +9,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0002_create_assessment_events"
-down_revision = "0001_convert_timestamps_to_timestamptz"
+revision = "0002"
+down_revision = "0001"
 branch_labels = None
 depends_on = None
 
@@ -23,7 +23,7 @@ def upgrade():
             "user_id",
             postgresql.UUID(as_uuid=False),
             nullable=False,
-
+        ),
         sa.Column("domain", sa.String(length=20), nullable=False),
         sa.Column("assessment_type", sa.String(length=50), nullable=False),
         sa.Column("value", sa.Float(), nullable=False),

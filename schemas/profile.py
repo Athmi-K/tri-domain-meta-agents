@@ -27,6 +27,7 @@ class CareerProfileIn(BaseModel):
     career_goal: Optional[str] = None
     preferred_roles: Optional[str] = None
     resume: Optional[str] = None
+    resume_text: Optional[str] = None  
 
     @field_validator('current_skills', mode='before')
     def parse_current_skills(cls, value: Union[str, list, None]):
@@ -112,3 +113,4 @@ class FullProfileOut(BaseModel):
     career: Optional[CareerProfileOut] = None
     health: Optional[HealthProfileOut] = None
     finance: Optional[FinanceProfileOut] = None
+

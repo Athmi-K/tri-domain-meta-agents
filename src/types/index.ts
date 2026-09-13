@@ -44,6 +44,7 @@ export interface CareerProfile {
   career_goal?: string
   preferred_roles?: string
   resume?: string
+  resume_text?: string
   updated_at?: string
 }
 
@@ -198,6 +199,10 @@ export interface QueryRequest {
   target_role?: string
   experience_level?: string
   location?: string
+  years_experience?: number
+  current_level?: string
+  timeline_months?: number
+  resume_text?: string
   weight_kg?: number
   height_cm?: number
   fitness_goal?: string
@@ -233,9 +238,29 @@ export interface DomainAgentResponse {
   confidence: number
   explainability?: Record<string, unknown>
   skill_gap?: Record<string, unknown>
+  jobs?: Array<{
+    title?: string
+    company?: string
+    location?: string
+    embedding_match_score?: number
+    description?: string
+    apply_link?: string
+    employment_type?: string
+    is_remote?: boolean
+  }>
   job_matches?: unknown[]
   salary_benchmark?: Record<string, unknown>
   learning_path?: unknown[]
+  resume_analysis?: {
+    semantic_match_score?: number
+    required_skills?: string[]
+    skills_not_evidenced?: string[]
+    suggestions?: string[]
+    structure_checks?: Record<string, boolean>
+    structure_missing?: string[]
+    error?: string
+  }
+  summary?: string
   bmi?: number
   fitness?: Record<string, unknown>
   workout_plan?: unknown[]
