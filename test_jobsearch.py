@@ -101,6 +101,34 @@ if __name__ == "__main__":
         location="Bangalore",
         experience_level="junior",
     ))
+    results.append(run_test(
+    "Full Stack in Pune, matching your failing case",
+    target_role="full stack",
+    skills=["python", "sql"],
+    location="Pune",
+    experience_level="mid",   # match whatever your profile actually has saved
+))
+    results.append(run_test(
+    "Full Stack, no experience_level filter",
+    target_role="full stack",
+    skills=["python", "sql"],
+    location="Pune",
+    experience_level="",
+))
+    results.append(run_test(
+    "Full Stack Developer (fuller phrase), Pune, mid",
+    target_role="full stack developer",
+    skills=["python", "sql"],
+    location="Pune",
+    experience_level="mid",
+))
+    results.append(run_test(
+    "Full Stack, Bangalore instead of Pune, mid",
+    target_role="full stack",
+    skills=["python", "sql"],
+    location="Bangalore",
+    experience_level="mid",
+))
 
     print_section("SUMMARY")
     passed = sum(1 for r in results if r)

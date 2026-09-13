@@ -1,74 +1,73 @@
-import {
-  BookOpen,
-  DollarSign,
-  TrendingUp,
-} from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { PageHeader } from '@/components/layout/PageHeader'
-import { MetricCard } from '@/components/common/MetricCard'
-import { StatCard } from '@/components/common/StatCard'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { useProfile, useQueryMutation } from '@/hooks'
-import { getErrorMessage } from '@/services'
-import { formatCurrency } from '@/utils'
-import { buildCareerPageData } from '@/utils/profileInsights'
-import type { QueryRequest, QueryResponse } from '@/types'
+import { BookOpen, DollarSign, TrendingUp } from "lucide-react";
+import { useMemo, useState } from "react";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { MetricCard } from "@/components/common/MetricCard";
+import { StatCard } from "@/components/common/StatCard";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useProfile, useQueryMutation } from "@/hooks";
+import { getErrorMessage } from "@/services";
+import { formatCurrency } from "@/utils";
+import { buildCareerPageData } from "@/utils/profileInsights";
+import type { QueryRequest, QueryResponse } from "@/types";
 
 export function CareerPage() {
-  const { data: profile } = useProfile()
-  const queryMutation = useQueryMutation()
-  const [result, setResult] = useState<QueryResponse | null>(null)
+  const { data: profile } = useProfile();
+  const queryMutation = useQueryMutation();
+  const [result, setResult] = useState<QueryResponse | null>(null);
 
-  const careerData = useMemo(() => buildCareerPageData(profile), [profile])
-  const { skills, currentSalary } = careerData
-  const targetRoleLabel = profile?.career?.target_role || 'Set target role'
+  const careerData = useMemo(() => buildCareerPageData(profile), [profile]);
+  const { skills, currentSalary } = careerData;
+  const targetRoleLabel = profile?.career?.target_role || "Set target role";
   const targetRoleChange = profile?.career?.target_role
     ? `Progress toward ${profile.career.target_role}`
-    : 'Add a target role for tailored recommendations'
+    : "Add a target role for tailored recommendations";
   const resumeTip = profile?.career?.resume
-    ? `Update resume with ${profile?.career?.target_role || 'career'} achievements`
-    : 'Add your resume summary to improve guidance'
+    ? `Update resume with ${profile?.career?.target_role || "career"} achievements`
+    : "Add your resume summary to improve guidance";
 
   const buildRequest = (): QueryRequest => ({
-    name: 'User',
+    name: "User",
     age: profile?.general?.age || 25,
-    query: `Career guidance for ${profile?.career?.target_role || 'my target role'}`,
-    domain: 'career',
+    query: `Career guidance for ${profile?.career?.target_role || "my target role"}`,
+    domain: "career",
     current_skills: profile?.career?.current_skills || [],
-    target_role: profile?.career?.target_role || '',
-    experience_level: profile?.career?.experience_level || '',
-    location: profile?.general?.location || 'Bangalore',
+    target_role: profile?.career?.target_role || "",
+    experience_level: profile?.career?.experience_level || "",
+    location: profile?.general?.location || "Bangalore",
     years_experience: 0,
-    current_level: profile?.career?.experience_level || 'beginner',
+    current_level: profile?.career?.experience_level || "beginner",
     timeline_months: 6,
-    resume_text: profile?.career?.resume_text || profile?.career?.resume || '',
-  })
+    resume_text: profile?.career?.resume_text || profile?.career?.resume || "",
+  });
 
   const handleRunCareerAgent = async () => {
     try {
-      const res = await queryMutation.mutateAsync(buildRequest())
-      setResult(res)
+      const res = await queryMutation.mutateAsync(buildRequest());
+      setResult(res);
     } catch (err) {
-      console.error(err)
+      console.error(err);
       setResult({
-        status: 'error',
+        status: "error",
         message: getErrorMessage(err),
-      } as QueryResponse)
+      } as QueryResponse);
     }
-  }
+  };
 
-  const firstResponse = result?.responses?.[0]
-  const skillGap = firstResponse?.skill_gap
+  const firstResponse = result?.responses?.[0];
+  const skillGap = firstResponse?.skill_gap;
   const jobs = Array.isArray(firstResponse?.jobs)
     ? firstResponse.jobs
     : Array.isArray((firstResponse as any)?.jobs?.jobs)
       ? (firstResponse as any).jobs.jobs
-      : []
-  const salary = firstResponse?.salary ?? firstResponse?.salary_benchmark
-  const learningPath = firstResponse?.learning_path ?? []
-  const resumeAnalysis = firstResponse?.resume_analysis
-  const summary = firstResponse?.summary || result?.message || ''
+      : [];
+  const salary = firstResponse?.salary ?? firstResponse?.salary_benchmark;
+  const learningPath = firstResponse?.learning_path;
+  const learningPhases = Array.isArray(learningPath?.phases)
+    ? learningPath.phases
+    : [];
+  const resumeAnalysis = firstResponse?.resume_analysis;
+  const summary = firstResponse?.summary || result?.message || "";
 
   return (
     <div className="space-y-8">
@@ -93,16 +92,23 @@ export function CareerPage() {
           <div>
             <CardTitle className="text-base">Career Agent</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Run the backend career-agent workflow for skill gaps, jobs, salary, learning path, and resume analysis.
+              Run the backend career-agent workflow for skill gaps, jobs,
+              salary, learning path, and resume analysis.
             </p>
           </div>
-          <Button variant="gradient" onClick={handleRunCareerAgent} disabled={queryMutation.isPending}>
-            {queryMutation.isPending ? 'Running...' : 'Run Career Agent'}
+          <Button
+            variant="gradient"
+            onClick={handleRunCareerAgent}
+            disabled={queryMutation.isPending}
+          >
+            {queryMutation.isPending ? "Running..." : "Run Career Agent"}
           </Button>
         </CardHeader>
         <CardContent>
           {queryMutation.isError && (
-            <p className="text-sm text-destructive">{getErrorMessage(queryMutation.error)}</p>
+            <p className="text-sm text-destructive">
+              {getErrorMessage(queryMutation.error)}
+            </p>
           )}
 
           {firstResponse && (
@@ -113,7 +119,9 @@ export function CareerPage() {
                     <CardTitle className="text-base">Summary</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="whitespace-pre-line text-sm text-muted-foreground">{summary}</p>
+                    <p className="whitespace-pre-line text-sm text-muted-foreground">
+                      {summary}
+                    </p>
                   </CardContent>
                 </Card>
               )}
@@ -139,29 +147,42 @@ export function CareerPage() {
                   <CardContent className="space-y-3">
                     {jobs.length > 0 ? (
                       jobs.map((job, idx) => (
-                        <div key={`${job.title}-${idx}`} className="rounded-lg border p-3">
+                        <div
+                          key={`${job.title}-${idx}`}
+                          className="rounded-lg border p-3"
+                        >
                           <p className="font-semibold">{job.title}</p>
-                          <p className="text-sm text-muted-foreground">{job.company}</p>
-                          <p className="text-xs text-muted-foreground">{job.location}</p>
-                          {typeof job.embedding_match_score === 'number' && (
+                          <p className="text-sm text-muted-foreground">
+                            {job.company}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {job.location}
+                          </p>
+                          {typeof job.embedding_match_score === "number" && (
                             <p className="mt-2 text-xs text-primary">
                               Match score: {job.embedding_match_score}%
                             </p>
                           )}
                           {job.description && (
-                            <p className="mt-2 text-xs text-muted-foreground">{job.description}</p>
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              {job.description}
+                            </p>
                           )}
                         </div>
                       ))
                     ) : (
-                      <p className="text-sm text-muted-foreground">No jobs returned.</p>
+                      <p className="text-sm text-muted-foreground">
+                        No jobs returned.
+                      </p>
                     )}
                   </CardContent>
                 </Card>
 
                 <Card className="border-primary/20">
                   <CardHeader>
-                    <CardTitle className="text-base">Salary Benchmark</CardTitle>
+                    <CardTitle className="text-base">
+                      Salary Benchmark
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs">
@@ -176,12 +197,18 @@ export function CareerPage() {
                   <CardTitle className="text-base">Learning Path</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {learningPath.length > 0 ? (
+                  {learningPath?.error ? (
+                    <p className="text-sm text-destructive">
+                      {learningPath.error}
+                    </p>
+                  ) : learningPhases.length > 0 ? (
                     <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs">
                       {JSON.stringify(learningPath, null, 2)}
                     </pre>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No learning path returned.</p>
+                    <p className="text-sm text-muted-foreground">
+                      No learning path returned.
+                    </p>
                   )}
                 </CardContent>
               </Card>
@@ -196,7 +223,9 @@ export function CareerPage() {
                       {JSON.stringify(resumeAnalysis, null, 2)}
                     </pre>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No resume analysis returned.</p>
+                    <p className="text-sm text-muted-foreground">
+                      No resume analysis returned.
+                    </p>
                   )}
                 </CardContent>
               </Card>
@@ -213,7 +242,8 @@ export function CareerPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Skill progress history will appear when real assessment history is available.
+                Skill progress history will appear when real assessment history
+                is available.
               </p>
             </CardContent>
           </Card>
@@ -224,7 +254,8 @@ export function CareerPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Career roadmap will appear when personalized career planning is available.
+                Career roadmap will appear when personalized career planning is
+                available.
               </p>
             </CardContent>
           </Card>
@@ -238,10 +269,14 @@ export function CareerPage() {
             <CardContent className="space-y-2">
               {skills.length > 0 ? (
                 skills.map((skill) => (
-                  <p key={skill} className="text-sm font-medium">{skill}</p>
+                  <p key={skill} className="text-sm font-medium">
+                    {skill}
+                  </p>
                 ))
               ) : (
-                <p className="text-sm text-muted-foreground">Add current skills to see them here.</p>
+                <p className="text-sm text-muted-foreground">
+                  Add current skills to see them here.
+                </p>
               )}
             </CardContent>
           </Card>
@@ -267,7 +302,11 @@ export function CareerPage() {
         <StatCard
           label="Resume Tips"
           value={resumeTip}
-          change={profile?.career?.resume ? 'Resume profile detected' : 'Complete your profile'}
+          change={
+            profile?.career?.resume
+              ? "Resume profile detected"
+              : "Complete your profile"
+          }
           icon={BookOpen}
           iconColor="text-purple-500"
         />
@@ -279,10 +318,11 @@ export function CareerPage() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Job recommendations will appear when a real recommendations source is available.
+            Job recommendations will appear when a real recommendations source
+            is available.
           </p>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
