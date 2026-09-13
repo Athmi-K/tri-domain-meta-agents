@@ -26,3 +26,5 @@ venv/
 .venv/
 
 node_modules/
+
+.cache/

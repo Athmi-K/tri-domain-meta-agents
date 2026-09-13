@@ -1,14 +1,18 @@
-from langchain_groq import ChatGroq
-from dotenv import load_dotenv
 import os
+from dotenv import load_dotenv
+from langchain_groq import ChatGroq
 
-load_dotenv()
+load_dotenv(override=True)
 
 llm = ChatGroq(
+    model="openai/gpt-oss-120b",
+    temperature=0.2,
+    max_tokens=300,
     api_key=os.getenv("GROQ_API_KEY"),
-    model="llama-3.3-70b-versatile",
-    temperature=0.7
 )
 
-response = llm.invoke("What are the top 3 skills for data science?")
+response = llm.invoke(
+    "What are the top 3 skills for data science?"
+)
+
 print(response.content)
