@@ -822,10 +822,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import type { FullProfile } from '@/types'
+import type { DebtEntry, FullProfile } from '@/types'
 
 const optionalNumber = (schema: z.ZodNumber) =>
   z.preprocess((value) => value === '' || value === null ? undefined : value, schema.optional())
+
+function parseJsonField<T>(value: string | undefined): T | undefined {
+  if (!value?.trim()) return undefined
+  try {
+    return JSON.parse(value) as T
+  } catch {
+    return undefined
+  }
+}
 
 const profileSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -863,14 +872,24 @@ const profileSchema = z.object({
     water_intake: z.coerce.number().optional(),
   }).optional(),
   finance: z.object({
-    monthly_income: z.coerce.number().optional(),
-    monthly_expenses: z.coerce.number().optional(),
-    savings_goal: z.coerce.number().optional(),
+    monthly_income: optionalNumber(z.coerce.number().min(0)),
+    monthly_expenses: optionalNumber(z.coerce.number().min(0)),
+    current_savings: optionalNumber(z.coerce.number().min(0)),
+    savings_goal: optionalNumber(z.coerce.number().min(0)),
     investments: z.string().optional(),
+    portfolio: z.string().optional(),
     risk_appetite: z.string().optional(),
     investment_experience: z.string().optional(),
     financial_goals: z.string().optional(),
     budget: z.string().optional(),
+    debts: z.string().optional(),
+    total_debt: optionalNumber(z.coerce.number().min(0)),
+    monthly_debt_payment: optionalNumber(z.coerce.number().min(0)),
+    retirement_age: optionalNumber(z.coerce.number().min(1).max(120)),
+    retirement_savings: optionalNumber(z.coerce.number().min(0)),
+    monthly_contribution: optionalNumber(z.coerce.number().min(0)),
+    annual_income: optionalNumber(z.coerce.number().min(0)),
+    tax_deductions: z.string().optional(),
   }).optional(),
 })
 
@@ -909,12 +928,22 @@ function buildProfilePayload(data: ProfileForm): FullProfile {
     finance: data.finance ? {
       monthly_income: data.finance.monthly_income,
       monthly_expenses: data.finance.monthly_expenses,
+      current_savings: data.finance.current_savings,
       savings_goal: data.finance.savings_goal,
       investments: data.finance.investments,
+      portfolio: parseJsonField<Record<string, number>>(data.finance.portfolio),
       risk_appetite: data.finance.risk_appetite,
       investment_experience: data.finance.investment_experience,
       financial_goals: data.finance.financial_goals,
       budget: data.finance.budget,
+      debts: parseJsonField<DebtEntry[]>(data.finance.debts),
+      total_debt: data.finance.total_debt,
+      monthly_debt_payment: data.finance.monthly_debt_payment,
+      retirement_age: data.finance.retirement_age,
+      retirement_savings: data.finance.retirement_savings,
+      monthly_contribution: data.finance.monthly_contribution,
+      annual_income: data.finance.annual_income,
+      tax_deductions: parseJsonField<Record<string, number>>(data.finance.tax_deductions),
     } : undefined,
   }
 }
@@ -963,12 +992,24 @@ function buildFormValues(profile: FullProfile | undefined, userName: string): Pr
     finance: profile.finance ? {
       monthly_income: profile.finance.monthly_income ?? undefined,
       monthly_expenses: profile.finance.monthly_expenses ?? undefined,
+      current_savings: profile.finance.current_savings ?? undefined,
       savings_goal: profile.finance.savings_goal ?? undefined,
       investments: profile.finance.investments ?? undefined,
+      portfolio: profile.finance.portfolio ? JSON.stringify(profile.finance.portfolio) : undefined,
       risk_appetite: profile.finance.risk_appetite ?? undefined,
       investment_experience: profile.finance.investment_experience ?? undefined,
       financial_goals: profile.finance.financial_goals ?? undefined,
       budget: profile.finance.budget ?? undefined,
+      debts: profile.finance.debts ? JSON.stringify(profile.finance.debts) : undefined,
+      total_debt: profile.finance.total_debt ?? undefined,
+      monthly_debt_payment: profile.finance.monthly_debt_payment ?? undefined,
+      retirement_age: profile.finance.retirement_age ?? undefined,
+      retirement_savings: profile.finance.retirement_savings ?? undefined,
+      monthly_contribution: profile.finance.monthly_contribution ?? undefined,
+      annual_income: profile.finance.annual_income ?? undefined,
+      tax_deductions: profile.finance.tax_deductions
+        ? JSON.stringify(profile.finance.tax_deductions)
+        : undefined,
     } : {},
   }
 }
@@ -1577,12 +1618,23 @@ export function ProfilePage() {
                   <Input type="number" step="0.01" min="0" {...register('finance.monthly_expenses')} />
                 </div>
                 <div className="space-y-2">
+                  <Label>Current Savings</Label>
+                  <Input type="number" step="0.01" min="0" {...register('finance.current_savings')} />
+                </div>
+                <div className="space-y-2">
                   <Label>Savings Goal</Label>
                   <Input type="number" step="0.01" min="0" {...register('finance.savings_goal')} />
                 </div>
                 <div className="space-y-2">
                   <Label>Investments</Label>
                   <Input {...register('finance.investments')} placeholder="e.g. stocks, real estate" />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Portfolio Values (JSON, optional)</Label>
+                  <Textarea
+                    {...register('finance.portfolio')}
+                    placeholder='e.g. {"equity": 300000, "debt": 200000}'
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Risk Tolerance</Label>
@@ -1629,6 +1681,44 @@ export function ProfilePage() {
                 <div className="space-y-2 sm:col-span-2">
                   <Label>Budget</Label>
                   <Textarea {...register('finance.budget')} placeholder="Monthly or annual budget notes" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Total Debt</Label>
+                  <Input type="number" step="0.01" min="0" {...register('finance.total_debt')} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Monthly Debt Payment</Label>
+                  <Input type="number" step="0.01" min="0" {...register('finance.monthly_debt_payment')} />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Debt Details (JSON, optional)</Label>
+                  <Textarea
+                    {...register('finance.debts')}
+                    placeholder='e.g. [{"name":"Loan","balance":250000,"interest_rate":10,"min_payment":10000}]'
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Retirement Age</Label>
+                  <Input type="number" min="1" max="120" {...register('finance.retirement_age')} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Retirement Savings</Label>
+                  <Input type="number" step="0.01" min="0" {...register('finance.retirement_savings')} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Monthly Retirement Contribution</Label>
+                  <Input type="number" step="0.01" min="0" {...register('finance.monthly_contribution')} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Annual Income</Label>
+                  <Input type="number" step="0.01" min="0" {...register('finance.annual_income')} />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Tax Deductions (JSON, optional)</Label>
+                  <Textarea
+                    {...register('finance.tax_deductions')}
+                    placeholder='e.g. {"80c": 120000, "80d": 15000}'
+                  />
                 </div>
               </CardContent>
             </Card>

@@ -285,57 +285,105 @@ def _wants_50_30_20_rule(query: str) -> bool:
 
 def _resolve_field(request: Any, field: str) -> Any:
     """Resolve a logical required field from the request object."""
+
     if field == "total_debt":
         return _get_total_debt(request)
+
     if field in {"monthly_repayment", "monthly_debt_payment"}:
         val = getattr(request, "monthly_repayment", None)
+
         if val is None:
             val = getattr(request, "monthly_debt_payment", None)
+
         return float(val) if val is not None and float(val) > 0 else None
+
     if field in {"income", "monthly_income"}:
         val = getattr(request, "income", None)
+
         if val is None:
             val = getattr(request, "monthly_income", None)
+
         return float(val) if val is not None and float(val) > 0 else None
+
     if field in {"expenses", "monthly_expenses"}:
         val = getattr(request, "expenses", None)
-        if val is None:
-            val = getattr(request, "monthly_expenses", None)
+
+        # If detailed expenses are provided as a dictionary,
+        # use their total. If the dictionary is empty, fall back
+        # to the monthly_expenses field.
         if isinstance(val, dict):
-            return float(sum(val.values())) if val else None
-        return float(val) if val is not None and float(val) > 0 else None
+            if val:
+                return float(sum(val.values()))
+
+        # If expenses is provided directly as a number
+        elif val is not None and float(val) > 0:
+            return float(val)
+
+        # Fall back to monthly_expenses
+        monthly_expenses = getattr(request, "monthly_expenses", None)
+
+        if monthly_expenses is not None and float(monthly_expenses) > 0:
+            return float(monthly_expenses)
+
+        return None
+
     if field == "annual_income":
         annual = getattr(request, "annual_income", None)
+
         if annual is not None and float(annual) > 0:
             return float(annual)
+
         monthly = getattr(request, "monthly_income", None)
+
         if monthly is not None and float(monthly) > 0:
             return float(monthly) * 12
+
         return None
+
     if field == "savings":
         for attr in ("retirement_savings", "current_savings", "savings"):
             val = getattr(request, attr, None)
+
             if val is not None and float(val) >= 0:
                 return float(val)
+
         return None
+
     if field == "retirement_age":
         val = getattr(request, "retirement_age", None)
+
         return int(val) if val is not None and int(val) > 0 else None
+
     if field == "financial_goals":
         return getattr(request, "financial_goals", None)
+
     if field == "portfolio":
         pf = _parse_portfolio(request)
         return pf if pf else None
+
     if field == "risk_tolerance":
-        return getattr(request, "risk_tolerance", None) or getattr(request, "risk_appetite", None)
+        return (
+            getattr(request, "risk_tolerance", None)
+            or getattr(request, "risk_appetite", None)
+        )
+
     if field == "investment_experience":
         val = getattr(request, "investment_experience", None)
-        return val.strip() if isinstance(val, str) and val.strip() else val
+
+        return (
+            val.strip()
+            if isinstance(val, str) and val.strip()
+            else val
+        )
+
     val = getattr(request, field, None)
+
     if field in ("monthly_income", "monthly_expenses", "savings_goal") and val is not None:
         return float(val) if float(val) > 0 else None
+
     if field == "age" and val is not None:
         return int(val) if int(val) > 0 else None
+
     return val
 
 
@@ -377,11 +425,21 @@ def _load_profile_from_db(user_id: str, request: Any) -> None:
             field_map = {
                 "monthly_income": "monthly_income",
                 "monthly_expenses": "monthly_expenses",
+                "current_savings": "current_savings",
                 "savings_goal": "savings_goal",
                 "investments": "investments",
+                "portfolio": "portfolio",
                 "investment_experience": "investment_experience",
                 "financial_goals": "financial_goals",
                 "budget": "budget",
+                "debts": "debts",
+                "total_debt": "total_debt",
+                "monthly_debt_payment": "monthly_debt_payment",
+                "retirement_age": "retirement_age",
+                "retirement_savings": "retirement_savings",
+                "monthly_contribution": "monthly_contribution",
+                "annual_income": "annual_income",
+                "tax_deductions": "tax_deductions",
             }
             for db_field, req_field in field_map.items():
                 if not getattr(request, req_field, None):

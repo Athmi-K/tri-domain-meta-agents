@@ -1,288 +1,52 @@
-import {
-  BookOpen,
-  DollarSign,
-  TrendingUp,
-} from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { AlertTriangle, ArrowUpRight, BriefcaseBusiness, Check, ChevronDown, CircleDollarSign, Clock3, FileText, Loader2, MapPin, Play, Route, Sparkles, Target, TrendingUp } from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { MetricCard } from '@/components/common/MetricCard'
-import { StatCard } from '@/components/common/StatCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { useProfile, useQueryMutation } from '@/hooks'
+import { useAssessmentHistory, useProfile, useQueryMutation } from '@/hooks'
 import { getErrorMessage } from '@/services'
-import { formatCurrency } from '@/utils'
 import { buildCareerPageData } from '@/utils/profileInsights'
 import type { QueryRequest, QueryResponse } from '@/types'
 
+type Data = Record<string, unknown>
+type Job = Data & { title?: string; company?: string; location?: string; description?: string; apply_link?: string; employment_type?: string; is_remote?: boolean; embedding_match_score?: number }
+const data = (value: unknown): Data => value && typeof value === 'object' && !Array.isArray(value) ? value as Data : {}
+const list = (value: unknown): unknown[] => Array.isArray(value) ? value : []
+const text = (value: unknown, fallback = '') => typeof value === 'string' || typeof value === 'number' ? String(value) : fallback
+const num = (value: unknown, fallback = 0) => typeof value === 'number' && Number.isFinite(value) ? value : fallback
+const strings = (value: unknown) => list(value).filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+const money = (value: number) => `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 1 })}`
+const label = (value: string) => value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+
+function Section({ title, icon: Icon, children }: { title: string; icon: LucideIcon; children: ReactNode }) {
+  return <Card className="overflow-hidden"><CardHeader className="border-b bg-muted/20 pb-4"><div className="flex items-start gap-3"><div className="rounded-lg bg-primary/10 p-2 text-primary"><Icon className="h-4 w-4" /></div><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Career intelligence</p><CardTitle className="mt-1 text-lg">{title}</CardTitle></div></div></CardHeader><CardContent className="pt-6">{children}</CardContent></Card>
+}
+function Empty({ title, detail }: { title: string; detail?: string }) { return <div className="rounded-lg border border-dashed bg-muted/20 px-5 py-8 text-center"><p className="font-medium">{title}</p>{detail && <p className="mt-1 text-sm text-muted-foreground">{detail}</p>}</div> }
+function Chips({ items, tone = 'default' }: { items: string[]; tone?: 'default' | 'positive' | 'warning' }) { const colors = tone === 'positive' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300' : tone === 'warning' ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-muted/70'; return items.length ? <div className="flex flex-wrap gap-2">{items.map((item) => <span key={item} className={`rounded-full border px-2.5 py-1 text-xs font-medium ${colors}`}>{item}</span>)}</div> : <p className="text-sm text-muted-foreground">Nothing available yet.</p> }
+function Metric({ label: metricLabel, value }: { label: string; value: string | number }) { return <div className="rounded-lg border bg-background/60 p-3"><p className="text-[11px] uppercase tracking-wide text-muted-foreground">{metricLabel}</p><p className="mt-1 truncate text-lg font-bold">{value}</p></div> }
+function Score({ value, name }: { value: number; name: string }) { const score = Math.max(0, Math.min(100, value)); return <div className="flex items-center gap-4"><div className="grid h-24 w-24 shrink-0 place-items-center rounded-full" style={{ background: `conic-gradient(hsl(var(--primary)) ${score}%, hsl(var(--muted)) 0)` }}><div className="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-full bg-card"><span className="text-xl font-bold">{score.toFixed(score % 1 ? 1 : 0)}%</span></div></div><div><p className="font-semibold">{name}</p><p className="text-sm text-muted-foreground">Based on the latest analysis</p></div></div> }
+
+function Salary({ value, targetRole }: { value: Data; targetRole: string }) {
+  const range = data(value.market_range_lpa); const min = num(range.min); const median = num(value.market_median_lpa); const max = num(range.max); const role = text(value.role)
+  return <Section title="Salary benchmark" icon={CircleDollarSign}>{min || median || max ? <><div className="flex items-start justify-between"><div><p className="text-2xl font-bold">{money(min)} - {money(max)} LPA</p><p className="mt-1 text-sm text-muted-foreground">{role ? `Benchmark for ${role}` : 'Market range'}</p></div><CircleDollarSign className="h-7 w-7 text-primary" /></div>{role && role.toLowerCase() !== targetRole.toLowerCase() && <p className="mt-4 flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300"><AlertTriangle className="h-4 w-4" />Salary benchmark role differs from selected target role.</p>}<div className="mt-7 h-2 rounded-full bg-muted"><div className="relative h-2 rounded-full bg-gradient-to-r from-emerald-400 to-teal-600" style={{ width: `${max ? Math.max(8, Math.min(100, median / max * 100)) : 100}%` }}><span className="absolute -right-1 -top-1.5 h-5 w-5 rounded-full border-2 border-background bg-primary" /></div></div><div className="mt-3 grid grid-cols-3 text-xs"><span><b className="block text-sm">{money(min)} LPA</b>Minimum</span><span className="text-center"><b className="block text-sm">{money(median)} LPA</b>Median</span><span className="text-right"><b className="block text-sm">{money(max)} LPA</b>Maximum</span></div>{strings(value.negotiation_tips).length > 0 && <details className="mt-6 rounded-lg border p-3"><summary className="cursor-pointer text-sm font-medium">Negotiation tips</summary><ul className="mt-3 space-y-2 text-sm text-muted-foreground">{strings(value.negotiation_tips).map((tip) => <li key={tip} className="flex gap-2"><Check className="h-4 w-4 text-primary" />{tip}</li>)}</ul></details>}</> : <Empty title="No salary benchmark available" />}</Section>
+}
+
+function Learning({ path, phases }: { path: Data; phases: Data[] }) {
+  const [open, setOpen] = useState<Record<number, boolean>>({ 0: true })
+  return <Section title="Learning roadmap" icon={Route}>{text(path.error) ? <Empty title="Unable to load learning path" detail={text(path.error)} /> : !phases.length ? <Empty title="No learning path available" /> : <><div className="mb-6 grid gap-3 sm:grid-cols-3"><Metric label="Timeline" value={`${text(path.timeline_months, '-')} months`} /><Metric label="Weekly commitment" value={`${text(path.weekly_hours_needed, '-')} hrs/week`} /><Metric label="Total estimated" value={`${text(path.total_weeks_required, '-')} weeks`} /></div><div className="relative space-y-3 before:absolute before:bottom-5 before:left-5 before:top-5 before:w-px before:bg-border">{phases.map((phase, index) => <div key={`${text(phase.phase, String(index + 1))}-${text(phase.focus)}`} className="relative pl-12"><div className="absolute left-0 top-4 grid h-10 w-10 place-items-center rounded-full border-4 border-background bg-primary text-sm font-bold text-primary-foreground">{text(phase.phase, String(index + 1))}</div><div className="rounded-xl border"><button className="flex w-full items-center justify-between p-4 text-left" onClick={() => setOpen((old) => ({ ...old, [index]: !old[index] }))}><span className="font-semibold">{text(phase.focus, 'Learning phase')}<span className="mt-1 flex items-center gap-2 text-xs font-normal text-muted-foreground"><Clock3 className="h-3.5 w-3.5" />{text(phase.duration_weeks, '-')} weeks</span></span><ChevronDown className={`h-4 w-4 ${open[index] ? 'rotate-180' : ''}`} /></button>{open[index] && <div className="border-t p-4"><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Topics</p><Chips items={strings(phase.topics)} /><p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resources</p><Chips items={strings(phase.resources)} tone="positive" /></div>}</div></div>)}</div>{text(path.advice) && <p className="mt-6 rounded-lg bg-primary/5 p-3 text-sm text-muted-foreground">{text(path.advice)}</p>}</>}</Section>
+}
+
+function Jobs({ jobs }: { jobs: Job[] }) {
+  const [open, setOpen] = useState<Record<number, boolean>>({})
+  return <Section title="Job matches" icon={BriefcaseBusiness}>{jobs.length ? <div className="space-y-3">{jobs.map((job, index) => <div key={`${text(job.title, 'job')}-${index}`} className="rounded-xl border p-4"><div className="flex flex-col justify-between gap-3 sm:flex-row"><div><h4 className="font-semibold">{text(job.title, 'Untitled opportunity')}</h4><p className="mt-1 text-sm text-muted-foreground">{text(job.company, 'Company not listed')}</p><p className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{text(job.location, 'Location not listed')}</span>{text(job.employment_type)}{job.is_remote && ' Remote'}</p></div>{typeof job.embedding_match_score === 'number' && <div className="rounded-lg bg-primary/10 px-3 py-2 text-center text-primary"><b className="block text-lg">{job.embedding_match_score.toFixed(1)}%</b><span className="text-[10px] uppercase tracking-wide">match</span></div>}</div>{(text(job.salary) || text(job.stipend)) && <p className="mt-3 text-sm font-semibold">{text(job.salary) || text(job.stipend)}</p>}{strings(job.skills).length > 0 && <div className="mt-3"><Chips items={strings(job.skills)} /></div>}{text(job.description) && <><button className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary" onClick={() => setOpen((old) => ({ ...old, [index]: !old[index] }))}>{open[index] ? 'Hide details' : 'View details'}<ChevronDown className={`h-4 w-4 ${open[index] ? 'rotate-180' : ''}`} /></button>{open[index] && <p className="mt-3 border-t pt-3 text-sm leading-6 text-muted-foreground">{text(job.description)}</p>}</>}{text(job.apply_link) && <Button asChild variant="outline" size="sm" className="mt-4"><a href={text(job.apply_link)} target="_blank" rel="noreferrer">View job <ArrowUpRight className="h-3.5 w-3.5" /></a></Button>}</div>)}</div> : <Empty title="No matching jobs found" detail="We'll show opportunities here when suitable roles are available." />}</Section>
+}
+
+function Resume({ value }: { value: Data }) { const missing = strings(value.skills_not_evidenced); const found = strings(value.required_skills).filter((item) => !missing.includes(item)); const checks = data(value.structure_checks); const suggestions = strings(value.suggestions); return <Section title="Resume analysis" icon={FileText}>{text(value.error) ? <Empty title="Unable to analyze resume" detail={text(value.error)} /> : !Object.keys(value).length ? <Empty title="No resume analysis available" detail="Add resume text to compare it with your target role." /> : <><Score value={num(value.semantic_match_score)} name="Semantic match" /><div className="mt-6 space-y-4"><div><p className="mb-2 text-sm font-semibold">Skills found</p><Chips items={found} tone="positive" /></div><div><p className="mb-2 text-sm font-semibold">Skills not evidenced</p><Chips items={missing} tone="warning" /></div><div><p className="mb-2 text-sm font-semibold">Resume structure</p><div className="grid grid-cols-2 gap-2">{Object.entries(checks).map(([key, checked]) => <div key={key} className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm">{checked ? <Check className="h-4 w-4 text-emerald-600" /> : <AlertTriangle className="h-4 w-4 text-amber-600" />}{label(key)}</div>)}</div></div>{suggestions.length > 0 && <div><p className="mb-2 text-sm font-semibold">Resume improvements</p><ol className="space-y-2">{suggestions.map((item, index) => <li key={item} className="flex gap-3 rounded-lg border p-3 text-sm"><span className="font-semibold text-primary">{String(index + 1).padStart(2, '0')}</span><span className="text-muted-foreground">{item}</span></li>)}</ol></div>}</div></>}</Section> }
+
 export function CareerPage() {
-  const { data: profile } = useProfile()
-  const queryMutation = useQueryMutation()
-  const [result, setResult] = useState<QueryResponse | null>(null)
-
-  const careerData = useMemo(() => buildCareerPageData(profile), [profile])
-  const { skills, currentSalary } = careerData
-  const targetRoleLabel = profile?.career?.target_role || 'Set target role'
-  const targetRoleChange = profile?.career?.target_role
-    ? `Progress toward ${profile.career.target_role}`
-    : 'Add a target role for tailored recommendations'
-  const resumeTip = profile?.career?.resume
-    ? `Update resume with ${profile?.career?.target_role || 'career'} achievements`
-    : 'Add your resume summary to improve guidance'
-
-  const buildRequest = (): QueryRequest => ({
-    name: 'User',
-    age: profile?.general?.age || 25,
-    query: `Career guidance for ${profile?.career?.target_role || 'my target role'}`,
-    domain: 'career',
-    current_skills: profile?.career?.current_skills || [],
-    target_role: profile?.career?.target_role || '',
-    experience_level: profile?.career?.experience_level || '',
-    location: profile?.general?.location || 'Bangalore',
-    years_experience: 0,
-    current_level: profile?.career?.experience_level || 'beginner',
-    timeline_months: 6,
-    resume_text: profile?.career?.resume_text || profile?.career?.resume || '',
-  })
-
-  const handleRunCareerAgent = async () => {
-    try {
-      const res = await queryMutation.mutateAsync(buildRequest())
-      setResult(res)
-    } catch (err) {
-      console.error(err)
-      setResult({
-        status: 'error',
-        message: getErrorMessage(err),
-      } as QueryResponse)
-    }
-  }
-
-  const firstResponse = result?.responses?.[0]
-  const skillGap = firstResponse?.skill_gap
-  const jobs = Array.isArray(firstResponse?.jobs)
-    ? firstResponse.jobs
-    : Array.isArray((firstResponse as any)?.jobs?.jobs)
-      ? (firstResponse as any).jobs.jobs
-      : []
-  const salary = firstResponse?.salary ?? firstResponse?.salary_benchmark
-  const learningPath = firstResponse?.learning_path ?? []
-  const resumeAnalysis = firstResponse?.resume_analysis
-  const summary = firstResponse?.summary || result?.message || ''
-
-  return (
-    <div className="space-y-8">
-      <PageHeader
-        title="Career Dashboard"
-        description="Skills, roadmaps, job intelligence, and AI career guidance"
-        badge="Career"
-      />
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <MetricCard
-          title="Skills Tracked"
-          value={skills.length}
-          subtitle="Saved current skills"
-          icon={BookOpen}
-          gradient="from-emerald-500 to-teal-500"
-        />
-      </div>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-4">
-          <div>
-            <CardTitle className="text-base">Career Agent</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              Run the backend career-agent workflow for skill gaps, jobs, salary, learning path, and resume analysis.
-            </p>
-          </div>
-          <Button variant="gradient" onClick={handleRunCareerAgent} disabled={queryMutation.isPending}>
-            {queryMutation.isPending ? 'Running...' : 'Run Career Agent'}
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {queryMutation.isError && (
-            <p className="text-sm text-destructive">{getErrorMessage(queryMutation.error)}</p>
-          )}
-
-          {firstResponse && (
-            <div className="space-y-6">
-              {summary && (
-                <Card className="border-primary/20">
-                  <CardHeader>
-                    <CardTitle className="text-base">Summary</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="whitespace-pre-line text-sm text-muted-foreground">{summary}</p>
-                  </CardContent>
-                </Card>
-              )}
-
-              {skillGap && (
-                <Card className="border-primary/20">
-                  <CardHeader>
-                    <CardTitle className="text-base">Skill Gap</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs">
-                      {JSON.stringify(skillGap, null, 2)}
-                    </pre>
-                  </CardContent>
-                </Card>
-              )}
-
-              <div className="grid gap-6 lg:grid-cols-2">
-                <Card className="border-primary/20">
-                  <CardHeader>
-                    <CardTitle className="text-base">Job Matches</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {jobs.length > 0 ? (
-                      jobs.map((job, idx) => (
-                        <div key={`${job.title}-${idx}`} className="rounded-lg border p-3">
-                          <p className="font-semibold">{job.title}</p>
-                          <p className="text-sm text-muted-foreground">{job.company}</p>
-                          <p className="text-xs text-muted-foreground">{job.location}</p>
-                          {typeof job.embedding_match_score === 'number' && (
-                            <p className="mt-2 text-xs text-primary">
-                              Match score: {job.embedding_match_score}%
-                            </p>
-                          )}
-                          {job.description && (
-                            <p className="mt-2 text-xs text-muted-foreground">{job.description}</p>
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No jobs returned.</p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card className="border-primary/20">
-                  <CardHeader>
-                    <CardTitle className="text-base">Salary Benchmark</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs">
-                      {JSON.stringify(salary, null, 2)}
-                    </pre>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card className="border-primary/20">
-                <CardHeader>
-                  <CardTitle className="text-base">Learning Path</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {learningPath.length > 0 ? (
-                    <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs">
-                      {JSON.stringify(learningPath, null, 2)}
-                    </pre>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No learning path returned.</p>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="border-primary/20">
-                <CardHeader>
-                  <CardTitle className="text-base">Resume Analysis</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {resumeAnalysis ? (
-                    <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs">
-                      {JSON.stringify(resumeAnalysis, null, 2)}
-                    </pre>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No resume analysis returned.</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Skill Progress</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Skill progress history will appear when real assessment history is available.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Career Roadmap</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Career roadmap will appear when personalized career planning is available.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Skills</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {skills.length > 0 ? (
-                skills.map((skill) => (
-                  <p key={skill} className="text-sm font-medium">{skill}</p>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">Add current skills to see them here.</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        {currentSalary !== null ? (
-          <StatCard
-            label="Current Salary"
-            value={formatCurrency(currentSalary)}
-            icon={DollarSign}
-            iconColor="text-blue-500"
-          />
-        ) : null}
-        <StatCard
-          label="Target Role"
-          value={targetRoleLabel}
-          change={targetRoleChange}
-          icon={TrendingUp}
-          iconColor="text-emerald-500"
-        />
-        <StatCard
-          label="Resume Tips"
-          value={resumeTip}
-          change={profile?.career?.resume ? 'Resume profile detected' : 'Complete your profile'}
-          icon={BookOpen}
-          iconColor="text-purple-500"
-        />
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Job Recommendations</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Job recommendations will appear when a real recommendations source is available.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
-  )
+  const { data: profile } = useProfile(); const { data: history, isError: historyError } = useAssessmentHistory(); const mutation = useQueryMutation(); const [result, setResult] = useState<QueryResponse | null>(null); const career = useMemo(() => buildCareerPageData(profile), [profile]); const response = data(result?.responses?.[0]); const gap = data(response.skill_gap); const salary = data(response.salary || response.salary_benchmark); const path = data(response.learning_path); const resume = data(response.resume_analysis); const phases = list(path.phases).map(data); const jobsValue = response.jobs; const jobs = (Array.isArray(jobsValue) ? jobsValue : list(data(jobsValue).jobs)).map((job) => data(job) as Job); const target = text(response.target_role, profile?.career?.target_role || 'Target role not set'); const currentSkills = strings(gap.current_skills).length ? strings(gap.current_skills) : career.skills; const matched = strings(gap.matched_skills); const missing = strings(gap.missing_skills); const match = num(gap.match_percentage, num(gap.total_required_skills) ? matched.length / num(gap.total_required_skills) * 100 : 0)
+  const request: QueryRequest = { name: 'User', age: profile?.general?.age || 25, query: `Career guidance for ${profile?.career?.target_role || 'my target role'}`, domain: 'career', current_skills: profile?.career?.current_skills || [], target_role: profile?.career?.target_role || '', experience_level: profile?.career?.experience_level || '', location: profile?.general?.location || 'Bangalore', years_experience: 0, current_level: profile?.career?.experience_level || 'beginner', timeline_months: 6, resume_text: profile?.career?.resume_text || profile?.career?.resume || '' }
+  const run = async () => { try { setResult(await mutation.mutateAsync(request)) } catch (error) { setResult({ status: 'error', message: getErrorMessage(error) }) } }
+  return <div className="space-y-6 pb-10"><PageHeader title="Career Intelligence" description="Skills, roadmaps, job intelligence, and AI career guidance" badge="Career" action={<Button variant="gradient" onClick={run} disabled={mutation.isPending}>{mutation.isPending ? <Loader2 className="animate-spin" /> : <Play />}{mutation.isPending ? 'Running analysis' : 'Run Career Agent'}</Button>} /><section className="rounded-2xl border bg-gradient-to-br from-emerald-500/15 via-teal-500/10 to-transparent p-6 sm:p-8"><div className="mb-5 flex items-center gap-2 text-sm font-medium text-primary"><Sparkles className="h-4 w-4" />Personalized career signal</div><div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]"><div><p className="text-sm text-muted-foreground">Your next role</p><h2 className="mt-1 text-3xl font-bold sm:text-4xl">{target}</h2><p className="mt-2 text-muted-foreground">{text(response.experience_level, profile?.career?.experience_level || 'Experience level not set')}</p></div><div className="grid grid-cols-2 gap-3 sm:grid-cols-3"><Metric label="Skills tracked" value={currentSkills.length} /><Metric label="Skill match" value={`${match.toFixed(1)}%`} /><Metric label="Current salary" value={career.currentSalary !== null ? money(career.currentSalary) : 'Not set'} /></div></div></section>{mutation.isError && <p className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"><AlertTriangle className="h-4 w-4" />{getErrorMessage(mutation.error)}</p>}{!result && !mutation.isPending && <Card><CardContent className="py-12 text-center"><Sparkles className="mx-auto h-7 w-7 text-primary" /><h3 className="mt-4 text-lg font-semibold">Ready for your career readout?</h3><p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">Run the Career Agent to turn your profile into live career intelligence.</p></CardContent></Card>}{result?.responses?.[0] && <div className="space-y-6"><Section title="Career summary" icon={Sparkles}><div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]"><p className="whitespace-pre-line text-sm leading-7 text-muted-foreground">{text(response.summary || result.message, 'No summary available.')}</p><div className="rounded-xl bg-muted/40 p-4"><p className="mb-3 text-sm font-semibold">Critical skill gaps</p><Chips items={missing} tone="warning" /></div></div></Section><div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]"><Section title="Skill match" icon={Target}><Score value={match} name="Skill match" /><div className="mt-6 grid grid-cols-2 gap-3"><Metric label="Matched" value={matched.length} /><Metric label="To develop" value={missing.length} /></div><div className="mt-6 space-y-4"><div><p className="mb-2 text-sm font-semibold">Your skills</p><Chips items={currentSkills} tone="positive" /></div><div><p className="mb-2 text-sm font-semibold">Skills to develop</p><Chips items={missing} tone="warning" /></div></div></Section><Salary value={salary} targetRole={target} /></div><Learning path={path} phases={phases} /><div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]"><Jobs jobs={jobs} /><Resume value={resume} /></div></div>}<div className="grid gap-6 lg:grid-cols-2"><Section title="Skill progress" icon={TrendingUp}>{historyError ? <Empty title="Unable to load assessment history" /> : history?.filter((item) => item.domain === 'career').length ? <div className="space-y-3">{history.filter((item) => item.domain === 'career').map((item) => <div key={item.assessment_id} className="flex items-center justify-between rounded-lg border p-3"><div><p className="font-medium">{item.target_role || target}</p><p className="text-xs text-muted-foreground">{new Date(item.assessed_at).toLocaleDateString()}</p></div><span className="font-semibold text-primary">{item.value}%</span></div>)}</div> : <Empty title="No assessment history yet" detail="Complete a skill assessment to start tracking your progress." />}</Section><Section title="Career roadmap" icon={Route}><Empty title="No career roadmap available" detail="Personalized career planning will appear here when available." /></Section></div></div>
 }

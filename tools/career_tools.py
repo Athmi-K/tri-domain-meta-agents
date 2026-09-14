@@ -734,7 +734,187 @@ def skill_gap_analyzer(
         "similarity_threshold": similarity_threshold,
     }
 
+# =========================================================
+# LEARNING PATH GENERATOR
+# =========================================================
 
+LEARNING_PATH_SCHEMA = (
+    '{"phases": [{"phase": 1, "focus": "string", '
+    '"topics": ["string"], "resources": ["string"], '
+    '"duration_weeks": 4}]}'
+)
+
+
+def _build_learning_path_prompt(
+    target_role: str,
+    current_level: str,
+    timeline_months: int,
+    missing_skills: list[str],
+    grounding_context: str = "",
+) -> str:
+    """
+    Build the prompt used to shape a learning path — whether the
+    grounding_context came from RAG, the local KB, or is empty
+    (pure LLM generation).
+    """
+    skills_text = _as_text(missing_skills) or "not specified"
+
+    context_block = (
+        f"\nReference context (use if relevant, ignore if not):\n{grounding_context[:2000]}\n"
+        if grounding_context
+        else ""
+    )
+
+    return f"""
+Create a realistic, phased learning roadmap for someone moving toward
+the target role below.
+
+Target role: {target_role}
+Current level: {current_level}
+Timeline: {timeline_months} months
+Skills they are currently missing: {skills_text}
+{context_block}
+Rules:
+- Prioritize phases around the missing skills listed above, in a sensible learning order.
+- Each phase needs: phase number, a short focus title, 2-5 topics, 1-3 resources (real, well-known, prefer free ones), and a realistic duration_weeks.
+- Keep the whole plan realistic for the given timeline.
+- Return ONLY valid JSON, no markdown, no extra text.
+
+Return exactly this structure:
+{LEARNING_PATH_SCHEMA}
+""".strip()
+
+
+def learning_path_generator(
+    target_role: str,
+    current_level: str,
+    timeline_months: int,
+    missing_skills: list[str] | None = None,
+) -> dict:
+    """
+    Generate a phased learning roadmap for any target role.
+
+    No hardcoded role dictionary. Follows the same RAG -> local KB ->
+    LLM fallback chain as skill_gap_analyzer(), and never silently
+    substitutes a different role's data - if nothing usable can be
+    generated, returns an explicit error instead.
+    """
+    if not target_role or not str(target_role).strip():
+        return {
+            "error": "Please provide a target role before generating a learning path."
+        }
+
+    role = " ".join(str(target_role).strip().lower().split())
+    missing_skills = missing_skills or []
+    source = None
+    grounding_context = ""
+
+    # -----------------------------------------------------
+    # 1. Try RAG
+    # -----------------------------------------------------
+    try:
+        from rag.retriever import retrieve_as_context
+
+        grounding_context = retrieve_as_context(
+            f"learning roadmap, skill-building order, courses and resources for becoming a {role}",
+            domain="career",
+            top_k=8,
+        ) or ""
+
+        if grounding_context:
+            source = "rag"
+
+    except Exception:
+        grounding_context = ""
+
+    # -----------------------------------------------------
+    # 2. Local KB fallback
+    # -----------------------------------------------------
+    if not grounding_context:
+        try:
+            kb_path = (
+                Path(__file__).resolve().parent.parent
+                / "rag"
+                / "knowledge_base"
+                / "career_kb.txt"
+            )
+            knowledge_text = kb_path.read_text(encoding="utf-8")
+
+            extracted = _extract_skills_from_career_knowledge(
+                knowledge_text,
+                target_role=role,
+            )
+
+            if extracted:
+                grounding_context = (
+                    f"Known relevant skills/topics for {role}: {_as_text(extracted)}"
+                )
+                source = "local_kb"
+
+        except Exception:
+            grounding_context = ""
+
+    # -----------------------------------------------------
+    # 3. LLM shaping (runs in every branch — RAG/KB context,
+    #    if any, is passed in as grounding; empty otherwise)
+    # -----------------------------------------------------
+    if source is None:
+        source = "llm_estimate"
+
+    prompt = _build_learning_path_prompt(
+        target_role=role,
+        current_level=current_level,
+        timeline_months=timeline_months,
+        missing_skills=missing_skills,
+        grounding_context=grounding_context,
+    )
+
+    llm_result = _call_llm(
+        system_prompt=(
+            "You are a strict JSON-generating career learning-path planner. "
+            "Respond with valid JSON only, matching the exact requested schema."
+        ),
+        user_prompt=prompt,
+        temperature=0.3,
+        max_tokens=1200,
+    )
+
+    phases = llm_result.get("phases") if isinstance(llm_result, dict) else None
+
+    if not phases or not isinstance(phases, list):
+        return {
+            "error": (
+                f"I couldn't generate a reliable learning path for '{target_role}'."
+            ),
+            "target_role": role,
+        }
+
+    total_weeks = sum(
+        int(p.get("duration_weeks", 0)) for p in phases if isinstance(p, dict)
+    )
+    available_weeks = timeline_months * 4
+    feasible = available_weeks >= total_weeks
+    weekly_hours = (
+        round((total_weeks * 10) / available_weeks, 1)
+        if available_weeks > 0
+        else 0
+    )
+
+    return {
+        "target_role": role,
+        "current_level": current_level,
+        "timeline_months": timeline_months,
+        "phases": phases,
+        "total_weeks_required": total_weeks,
+        "feasible": feasible,
+        "weekly_hours_needed": weekly_hours,
+        "advice": (
+            "Your timeline is achievable. Stay consistent."
+            if feasible
+            else f"Timeline is tight. You need ~{weekly_hours} hrs/week, or consider extending to {round(total_weeks / 4)} months."
+        ),
+        "source": source,
+    }
 # =========================================================
 # JOB API
 # =========================================================

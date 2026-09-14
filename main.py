@@ -106,19 +106,23 @@ class QueryRequest(BaseModel):
     stress_level:       int   = 5
     anxiety_level:      int   = 4
     last_checkup_months_ago: int = 12
-    monthly_income:       float = 50_000.0
-    monthly_expenses:     float = 35_000.0
-    current_savings:      float = 0.0
+    monthly_income:       float | None = None
+    monthly_expenses:     float | None = None
+    current_savings:      float | None = None
     expenses:             dict  = {}
     portfolio:            dict  = {}
-    risk_tolerance:       str   = "moderate"
+    risk_tolerance:       str | None = None
     debts:                list  = []
-    monthly_debt_payment: float = 0.0
-    retirement_age:       int   = 60
-    retirement_savings:   float = 0.0
-    monthly_contribution: float = 0.0
-    annual_income:        float = 0.0
+    total_debt:           float | None = None
+    monthly_debt_payment: float | None = None
+    retirement_age:       int | None = None
+    retirement_savings:   float | None = None
+    monthly_contribution: float | None = None
+    annual_income:        float | None = None
     tax_deductions:       dict  = {}
+    savings_goal:         float | None = None
+    investment_experience: str | None = None
+    financial_goals:      str | None = None
 
 # ── Parallel agent runner ─────────────────────────────────────
 async def run_agents_parallel(domains: list, request: QueryRequest) -> list:

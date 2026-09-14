@@ -64,13 +64,30 @@ export interface HealthProfile {
 export interface FinanceProfile {
   monthly_income?: number
   monthly_expenses?: number
+  current_savings?: number
   savings_goal?: number
   investments?: string
+  portfolio?: Record<string, number>
   risk_appetite?: string
   investment_experience?: string
   financial_goals?: string
   budget?: string
+  debts?: DebtEntry[]
+  total_debt?: number
+  monthly_debt_payment?: number
+  retirement_age?: number
+  retirement_savings?: number
+  monthly_contribution?: number
+  annual_income?: number
+  tax_deductions?: Record<string, number>
   updated_at?: string
+}
+
+export interface DebtEntry {
+  name: string
+  balance: number
+  interest_rate: number
+  min_payment: number
 }
 
 export interface FullProfile {
@@ -209,9 +226,21 @@ export interface QueryRequest {
   sleep_hours?: number
   monthly_income?: number
   monthly_expenses?: number
+  savings_goal?: number
+  current_savings?: number
   expenses?: Record<string, number>
   portfolio?: Record<string, number>
   risk_tolerance?: string
+  investment_experience?: string
+  financial_goals?: string
+  debts?: DebtEntry[]
+  total_debt?: number
+  monthly_debt_payment?: number
+  retirement_age?: number
+  retirement_savings?: number
+  monthly_contribution?: number
+  annual_income?: number
+  tax_deductions?: Record<string, number>
 }
 
 export interface QueryIntent {
@@ -268,6 +297,73 @@ export interface DomainAgentResponse {
   sleep?: Record<string, unknown>
   savings?: Record<string, unknown>
   debt_ratio?: number
+  tools_used?: string[]
+  tool_outputs?: Record<string, FinanceToolOutput>
+}
+
+export interface FinanceCategoryBreakdown {
+  category: string
+  amount: number
+  share_pct: number
+  status: string
+  recommended_pct?: number
+}
+
+export interface FinanceToolOutput {
+  error?: string
+  recommendation?: string
+  summary?: string
+  calculation_steps?: string[]
+  health_score?: number
+  health_status?: string
+  expense_ratio_pct?: number
+  strengths?: unknown[]
+  weaknesses?: unknown[]
+  income?: number
+  expenses?: number
+  monthly_savings?: number
+  total_expenses?: number
+  disposable_income?: number
+  remaining_amount?: number
+  savings_rate_pct?: number
+  savings_goal?: number | null
+  goal_difference?: number | null
+  current_savings?: number
+  remaining_to_goal?: number | null
+  months_to_goal?: number | null
+  shortfall?: number | null
+  category_breakdown?: FinanceCategoryBreakdown[]
+  savings_status?: string
+  overspending?: string[]
+  total_debt?: number | null
+  monthly_payment?: number
+  recommended_strategy?: string
+  interest_savings?: number
+  debt_to_income_ratio?: number
+  debt_status?: string
+  projected_corpus?: number
+  corpus_needed?: number
+  gap_or_surplus?: number
+  status?: string
+  required_monthly_contrib?: number
+  retirement_age?: number
+  monthly_contribution?: number
+  assumptions?: string[] | Record<string, number>
+  gross_income?: number
+  taxable_income?: number
+  estimated_tax?: number
+  recommended_regime?: string
+  tax_savings_vs_other?: number
+  optimisation_tips?: string[]
+  old_regime?: Record<string, unknown>
+  new_regime?: Record<string, unknown>
+  portfolio_value?: number
+  current_allocation?: Record<string, number>
+  target_allocation?: Record<string, number>
+  rebalancing_deltas?: Array<Record<string, string | number>>
+  risk_profile?: string
+  age_bracket?: string
+  [key: string]: unknown
 }
 
 export interface Domain {

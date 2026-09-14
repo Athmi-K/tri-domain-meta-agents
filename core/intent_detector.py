@@ -1,5 +1,5 @@
 from core.llm_client import call_llm
-from core.safety_layer import normalize_query, DOMAIN_KEYWORDS
+from core.safety_layer import normalize_query, DOMAIN_KEYWORDS, has_keyword
 
 
 def detect_intent(query: str) -> dict:
@@ -22,7 +22,7 @@ def detect_intent(query: str) -> dict:
     match_scores = {}
 
     for domain, keywords in DOMAIN_KEYWORDS.items():
-        score = sum(1 for kw in keywords if kw in query_lower)
+        score = sum(1 for kw in keywords if has_keyword(query_lower, kw))
         if score > 0:
             matched.append(domain)
             match_scores[domain] = score

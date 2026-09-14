@@ -6,13 +6,13 @@ from core.llm_client import call_llm
 
 from tools.calculators import (
     salary_benchmark,
-    learning_path_generator,
 )
 
 from tools.career_tools import (
     skill_gap_analyzer,
     job_search,
     resume_optimizer,
+    learning_path_generator,
 )
 
 
@@ -193,7 +193,7 @@ def run(request: Any, constraints: str = "") -> dict:
     - timeline_months: int
     - resume_text: str
     """
-
+    
     current_skills = _get_request_value(
         request,
         "current_skills",
@@ -292,9 +292,10 @@ def run(request: Any, constraints: str = "") -> dict:
     # ---------------------------------------------------------
 
     path_data = learning_path_generator(
-        goal=target_role,
+        target_role=target_role,
         current_level=current_level,
         timeline_months=timeline_months,
+        missing_skills=gap_data.get("missing_skills", []) if isinstance(gap_data, dict) else [],
     )
 
     # ---------------------------------------------------------
@@ -339,9 +340,8 @@ Additional constraints:
             CAREER_ADVISOR_SYSTEM_PROMPT,
             summary_prompt,
             temperature=0.4,
-            
+            max_tokens=2500,
         )
-
         print("DEBUG - LLM RESULT:")
         print(llm_result)
 

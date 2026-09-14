@@ -9,7 +9,7 @@ import json
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey,Text
+from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
 
@@ -89,12 +89,22 @@ class FinanceProfile(Base):
     )
     monthly_income = Column(Float, nullable=True)
     monthly_expenses = Column(Float, nullable=True)
+    current_savings = Column(Float, nullable=True)
     savings_goal = Column(Float, nullable=True)
     investments = Column(String(255), nullable=True)
+    portfolio = Column(JSON, nullable=True)
     risk_appetite = Column(String(50), nullable=True)  # low/medium/high
     investment_experience = Column(String(50), nullable=True)  # beginner/intermediate/advanced
     financial_goals = Column(String(255), nullable=True)
     budget = Column(String(500), nullable=True)
+    debts = Column(JSON, nullable=True)
+    total_debt = Column(Float, nullable=True)
+    monthly_debt_payment = Column(Float, nullable=True)
+    retirement_age = Column(Integer, nullable=True)
+    retirement_savings = Column(Float, nullable=True)
+    monthly_contribution = Column(Float, nullable=True)
+    annual_income = Column(Float, nullable=True)
+    tax_deductions = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

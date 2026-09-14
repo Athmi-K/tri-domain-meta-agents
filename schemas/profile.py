@@ -64,12 +64,22 @@ class HealthProfileIn(BaseModel):
 class FinanceProfileIn(BaseModel):
     monthly_income: Optional[float] = None
     monthly_expenses: Optional[float] = None
+    current_savings: Optional[float] = None
     savings_goal: Optional[float] = None
     investments: Optional[str] = None
+    portfolio: Optional[dict[str, float]] = None
     risk_appetite: Optional[str] = None
     investment_experience: Optional[str] = None
     financial_goals: Optional[str] = None
     budget: Optional[str] = None
+    debts: Optional[list[dict]] = None
+    total_debt: Optional[float] = None
+    monthly_debt_payment: Optional[float] = None
+    retirement_age: Optional[int] = None
+    retirement_savings: Optional[float] = None
+    monthly_contribution: Optional[float] = None
+    annual_income: Optional[float] = None
+    tax_deductions: Optional[dict[str, float]] = None
 
 
 class FullProfileIn(BaseModel):
