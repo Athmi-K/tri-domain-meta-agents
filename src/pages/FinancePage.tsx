@@ -157,11 +157,14 @@ export function FinancePage() {
   const hasDebtInputs = Boolean(
     (profile?.finance?.total_debt != null &&
       profile.finance.total_debt > 0) ||
-      (profile?.finance?.debts && profile.finance.debts.length > 0),
+      (profile?.finance?.debts && profile.finance.debts.length > 0) ||
+      (profile?.finance?.monthly_debt_payment != null &&
+        profile.finance.monthly_debt_payment > 0),
   );
   const hasRetirementInputs = Boolean(
     profile?.general?.age != null &&
       monthlyIncome != null &&
+      monthlyExpenses != null &&
       profile?.finance?.retirement_age != null &&
       profile?.finance?.retirement_savings != null &&
       profile?.finance?.monthly_contribution != null,
@@ -279,6 +282,26 @@ export function FinancePage() {
   const overviewSavings = financialAnalysisData?.monthly_savings ?? savings;
   const overviewSavingsRate =
     financialAnalysisData?.savings_rate_pct ?? savingsRate;
+  const profileCurrentSavings = profile?.finance?.current_savings;
+  const profileSavingsGoal = profile?.finance?.savings_goal;
+  const currentSavings =
+    savingsData?.current_savings ?? profileCurrentSavings;
+  const remainingSavings =
+    savingsData?.remaining_to_goal ??
+    savingsData?.shortfall ??
+    (profileSavingsGoal != null && profileCurrentSavings != null
+      ? Math.max(0, profileSavingsGoal - profileCurrentSavings)
+      : null);
+  const profileTotalDebt = profile?.finance?.total_debt;
+  const profileMonthlyDebtPayment = profile?.finance?.monthly_debt_payment;
+  const debtTotal = debtData?.total_debt ?? profileTotalDebt;
+  const debtMonthlyPayment =
+    debtData?.monthly_payment ?? profileMonthlyDebtPayment;
+  const debtToIncome =
+    debtData?.debt_to_income_ratio ??
+    (debtMonthlyPayment != null && monthlyIncome != null && monthlyIncome > 0
+      ? (debtMonthlyPayment / monthlyIncome) * 100
+      : null);
   const hasInvestmentProfile = Boolean(
     profile?.finance?.investments ||
       riskProfile ||
@@ -816,19 +839,13 @@ export function FinancePage() {
                   <div className="rounded-xl border p-4">
                     <p className="text-sm text-muted-foreground">Current Savings</p>
                     <p className="mt-1 text-xl font-semibold">
-                      {savingsData
-                        ? formatFinanceCurrency(savingsData.current_savings)
-                        : "Generating..."}
+                      {formatFinanceCurrency(currentSavings)}
                     </p>
                   </div>
                   <div className="rounded-xl border p-4">
                     <p className="text-sm text-muted-foreground">Amount Remaining</p>
                     <p className="mt-1 text-xl font-semibold">
-                      {savingsData
-                        ? formatFinanceCurrency(
-                            savingsData.remaining_to_goal ?? savingsData.shortfall,
-                          )
-                        : "Generating..."}
+                      {formatFinanceCurrency(remainingSavings)}
                     </p>
                   </div>
                   <div className="rounded-xl border p-4">
@@ -965,30 +982,30 @@ export function FinancePage() {
             <CardTitle className="text-base">Debt Management</CardTitle>
           </CardHeader>
           <CardContent>
-            {debtData ? (
+            {debtData || hasDebtInputs ? (
               <div className="space-y-3 text-sm">
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="rounded-xl border p-4">
                     <p className="text-muted-foreground">Total Debt</p>
-                    <p className="mt-1 text-xl font-semibold">{formatFinanceCurrency(debtData.total_debt)}</p>
+                    <p className="mt-1 text-xl font-semibold">{formatFinanceCurrency(debtTotal)}</p>
                   </div>
                   <div className="rounded-xl border p-4">
                     <p className="text-muted-foreground">Monthly Payment</p>
-                    <p className="mt-1 text-xl font-semibold">{formatFinanceCurrency(debtData.monthly_payment)}</p>
+                    <p className="mt-1 text-xl font-semibold">{formatFinanceCurrency(debtMonthlyPayment)}</p>
                   </div>
                   <div className="rounded-xl border p-4">
                     <p className="text-muted-foreground">Debt-to-Income</p>
                     <p className="mt-1 text-xl font-semibold">
-                      {formatFinancePercent(debtData.debt_to_income_ratio)}
+                      {formatFinancePercent(debtToIncome)}
                     </p>
                   </div>
                 </div>
-                {debtData.recommended_strategy && (
+                {debtData?.recommended_strategy && (
                   <p className="text-sm font-medium capitalize">
                     Recommended strategy: {debtData.recommended_strategy}
                   </p>
                 )}
-                {debtData.summary && <p className="text-muted-foreground">{debtData.summary}</p>}
+                {debtData?.summary && <p className="text-muted-foreground">{debtData.summary}</p>}
               </div>
             ) : analysisErrors.debt ? (
               <p className="text-sm text-destructive">{analysisErrors.debt}</p>
@@ -1005,7 +1022,9 @@ export function FinancePage() {
             <CardTitle className="text-base">Retirement Planning</CardTitle>
           </CardHeader>
           <CardContent>
-            {retirementData ? (
+            {retirementData?.error ? (
+              <p className="text-sm text-destructive">{retirementData.error}</p>
+            ) : retirementData ? (
               <div className="space-y-3 text-sm">
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="rounded-xl border p-4">
