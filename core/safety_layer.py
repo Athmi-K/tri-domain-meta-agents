@@ -96,18 +96,21 @@ def normalize_query(query: str) -> str:
         normalized = normalized.replace(source, target)
     return normalized
 
-
-def has_blocked_keyword(query: str, keyword: str) -> bool:
+def has_keyword(query: str, keyword: str) -> bool:
     """
-    Match blocked keywords safely:
+    Match a keyword safely:
     - multi-word phrase: substring match
     - single word: whole-word regex match
-      (prevents false positives like 'kill' in 'skills')
+      (prevents false positives like 'kill' in 'skills', or 'eat' in 'create')
     """
     if " " in keyword:
         return keyword in query
     pattern = rf"\b{re.escape(keyword)}\b"
     return re.search(pattern, query) is not None
+
+
+def has_blocked_keyword(query: str, keyword: str) -> bool:
+    return has_keyword(query, keyword)
 
 
 def check_safety(query: str) -> dict:
@@ -160,7 +163,7 @@ def check_relevance(query: str) -> dict:
     matched = []
 
     for domain, keywords in DOMAIN_KEYWORDS.items():
-        if any(kw in query_lower for kw in keywords):
+        if any(has_keyword(query_lower, kw) for kw in keywords):
             matched.append(domain)
 
     # Extra career intent check for indirect phrasing
