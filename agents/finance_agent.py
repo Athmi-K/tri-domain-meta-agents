@@ -206,7 +206,52 @@ Respond ONLY with valid JSON — no markdown fences:
     "confidence": 0.88
 }"""
 
+# ── Finance domain fallback ───────────────────────────────────────────────────
 
+_FINANCE_DOMAIN_PATTERNS = (
+    r"\bfinance\b",
+    r"\bfinancial\b",
+    r"\bmoney\b",
+    r"\bincome\b",
+    r"\bsalary\b",
+    r"\bear(n|ning|s)?\b",
+    r"\bexpense(s)?\b",
+    r"\bspend(ing)?\b",
+    r"\bbudget\b",
+    r"\bsav(e|ing|ings)?\b",
+    r"\bemergency fund\b",
+    r"\binvest(ment|ing|or)?s?\b",
+    r"\bportfolio\b",
+    r"\bstocks?\b",
+    r"\bmutual funds?\b",
+    r"\bsip\b",
+    r"\bequity\b",
+    r"\bdebt\b",
+    r"\bloan\b",
+    r"\bemi\b",
+    r"\bcredit card\b",
+    r"\bretirement\b",
+    r"\bpension\b",
+    r"\btax(able|ation)?\b",
+    r"\bitr\b",
+    r"\bdeduction(s)?\b",
+    r"\bfinancial goals?\b",
+    r"\bwealth\b",
+    r"\bcompound interest\b",
+)
+
+
+def _looks_like_finance_query(query: str) -> bool:
+    """
+    Lightweight fallback used only when the global intent detector
+    returns 'general' for a clearly Finance-related query.
+    """
+    q = query.lower().strip()
+
+    if not q:
+        return False
+
+    return any(re.search(pattern, q) for pattern in _FINANCE_DOMAIN_PATTERNS)
 # ── Profile helpers ───────────────────────────────────────────────────────────
 
 def _normalize_risk(risk: str | None) -> str:
@@ -1043,8 +1088,14 @@ def run(request: Any) -> dict[str, Any]:
     # Manual Finance selection must not turn an unrelated question into a
     # Finance request. Guard before loading profile data or selecting tools.
     intent = detect_intent(query)
-    detected_domain = (intent.get("domains") or ["general"])[0]
-    if detected_domain != "finance":
+    domains = intent.get("domains") or ["general"]
+    detected_domain = domains[0]
+
+    # The global router may identify Finance alongside another domain. A
+    # general result is accepted only when the query has clear Finance intent.
+    if "finance" not in domains and not (
+        domains == ["general"] and _looks_like_finance_query(query)
+    ):
         domain_label = {
             "career": "Career",
             "health": "Health",
