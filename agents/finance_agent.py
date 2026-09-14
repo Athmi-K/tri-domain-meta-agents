@@ -425,11 +425,21 @@ def _load_profile_from_db(user_id: str, request: Any) -> None:
             field_map = {
                 "monthly_income": "monthly_income",
                 "monthly_expenses": "monthly_expenses",
+                "current_savings": "current_savings",
                 "savings_goal": "savings_goal",
                 "investments": "investments",
+                "portfolio": "portfolio",
                 "investment_experience": "investment_experience",
                 "financial_goals": "financial_goals",
                 "budget": "budget",
+                "debts": "debts",
+                "total_debt": "total_debt",
+                "monthly_debt_payment": "monthly_debt_payment",
+                "retirement_age": "retirement_age",
+                "retirement_savings": "retirement_savings",
+                "monthly_contribution": "monthly_contribution",
+                "annual_income": "annual_income",
+                "tax_deductions": "tax_deductions",
             }
             for db_field, req_field in field_map.items():
                 if not getattr(request, req_field, None):

@@ -91,11 +91,21 @@ def _build_finance_request(
     if finance:
         req.monthly_income = finance.monthly_income
         req.monthly_expenses = finance.monthly_expenses
+        req.current_savings = finance.current_savings
         req.savings_goal = finance.savings_goal
         req.investments = finance.investments
+        req.portfolio = finance.portfolio or {}
         req.investment_experience = finance.investment_experience
         req.financial_goals = finance.financial_goals
         req.budget = finance.budget
+        req.debts = finance.debts or []
+        req.total_debt = finance.total_debt
+        req.monthly_debt_payment = finance.monthly_debt_payment
+        req.retirement_age = finance.retirement_age
+        req.retirement_savings = finance.retirement_savings
+        req.monthly_contribution = finance.monthly_contribution
+        req.annual_income = finance.annual_income
+        req.tax_deductions = finance.tax_deductions or {}
         req.risk_tolerance = _normalize_risk_appetite(finance.risk_appetite)
 
         # Parse categorized expenses from budget field

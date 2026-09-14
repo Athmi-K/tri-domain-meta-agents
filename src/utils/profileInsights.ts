@@ -75,14 +75,17 @@ export function buildHealthPageData(profile?: FullProfile) {
   }
 }
 export function buildFinancePageData(profile?: FullProfile) {
-  const monthlyIncome = profile?.finance?.monthly_income || 0
-  const monthlyExpenses = profile?.finance?.monthly_expenses || 0
-  const savings = monthlyIncome - monthlyExpenses
-  const savingsRate = monthlyIncome > 0 ? (savings / monthlyIncome) * 100 : 0
-  const budgetBreakdown: Array<{ name: string; value: number; color: string }> = []
-  const monthlyTrend: Array<{ month: string; income: number; expenses: number; savings: number }> = []
+  const monthlyIncome = profile?.finance?.monthly_income ?? null
+  const monthlyExpenses = profile?.finance?.monthly_expenses ?? null
+  const savings =
+    monthlyIncome != null && monthlyExpenses != null
+      ? monthlyIncome - monthlyExpenses
+      : null
+  const savingsRate =
+    monthlyIncome != null && monthlyIncome > 0 && savings != null
+      ? (savings / monthlyIncome) * 100
+      : null
   const riskProfile = profile?.finance?.risk_appetite ?? null
-  const portfolio: Array<{ asset: string; allocation: number; value: number }> = []
   const investments = profile?.finance?.investments
     ? profile.finance.investments.split(',').map((item) => item.trim()).filter(Boolean)
     : []
@@ -91,10 +94,7 @@ export function buildFinancePageData(profile?: FullProfile) {
     monthlyExpenses,
     savings,
     savingsRate,
-    budgetBreakdown,
-    monthlyTrend,
     riskProfile,
-    portfolio,
     investments,
   }
 }
