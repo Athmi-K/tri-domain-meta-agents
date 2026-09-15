@@ -42,24 +42,9 @@ def get_reports(
 @router.get("/{report_id}")
 def download_report(
     report_id: str,
-    token: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    from core.security import decode_access_token
-    from models.user import User
-
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    try:
-        payload = decode_access_token(token)
-        user_id = payload.get("sub")
-    except Exception:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    current_user = db.query(User).filter(User.id == user_id).first()
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
     report = get_report(db, report_id, current_user.id)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")

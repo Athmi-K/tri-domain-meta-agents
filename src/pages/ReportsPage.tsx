@@ -57,8 +57,13 @@ export function ReportsPage() {
   }
 
   const handlePreview = (id: string) => {
-    const previewUrl = reportService.getDownloadUrl(id)
-    window.open(previewUrl, '_blank')
+    void reportService.download(id).then((blob) => {
+      const previewUrl = URL.createObjectURL(blob)
+      window.open(previewUrl, '_blank')
+      window.setTimeout(() => URL.revokeObjectURL(previewUrl), 60_000)
+    }).catch((err) => {
+      toast.error(getErrorMessage(err) || 'Unable to preview report')
+    })
   }
 
   return (

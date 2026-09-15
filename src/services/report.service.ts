@@ -14,13 +14,7 @@ export const reportService = {
   },
 
   async download(id: string): Promise<Blob> {
-    const token = localStorage.getItem('tridomain_access_token')
-
-    if (!token) {
-      throw new Error('Authentication token not found')
-    }
-
-    const res = await api.get(`/reports/${id}?token=${encodeURIComponent(token)}`, {
+    const res = await api.get(`/reports/${id}`, {
       responseType: 'blob',
     })
 
@@ -28,13 +22,7 @@ export const reportService = {
   },
 
   getDownloadUrl(id: string): string {
-    const token = localStorage.getItem('tridomain_access_token')
-
-    if (!token) {
-      throw new Error('Authentication token not found')
-    }
-
-    return `${API_BASE_URL}/reports/${id}?token=${encodeURIComponent(token)}`
+    return `${API_BASE_URL}/reports/${id}`
   },
 
   async delete(id: string): Promise<void> {

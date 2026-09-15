@@ -69,6 +69,55 @@ Recent Advice Given:
 {history_data}
 """
 
+
+def _normalize_report_output(llm_output, domain: str, profile_snapshot: dict) -> dict:
+    """Adapt model responses to the stable schema consumed by the PDF renderer."""
+    output = llm_output if isinstance(llm_output, dict) else {}
+    recommendation = output.get("ai_recommendation") or output.get("recommendation") or output.get("summary")
+
+    if not recommendation or len(str(recommendation).strip()) < 10:
+        recommendation = (
+            f"Use the available {domain} profile information to define a focused next step, "
+            "then review and update this report as more information becomes available."
+        )
+
+    detailed_analysis = output.get("detailed_analysis") or {}
+    if not isinstance(detailed_analysis, dict):
+        detailed_analysis = {"Analysis": str(detailed_analysis)}
+    if not detailed_analysis:
+        detailed_analysis = {
+            "Profile-based analysis": (
+                "The report was generated from the profile information currently on file. "
+                "Add more domain-specific details to make the next analysis more precise."
+            )
+        }
+
+    explainability = output.get("explainability") or {}
+    if not isinstance(explainability, dict):
+        explainability = {"Reasoning": str(explainability)}
+    if not explainability:
+        explainability = {"Reasoning": "Recommendations are based on the supplied profile and available context."}
+
+    normalized = dict(output)
+    normalized.update({
+        "ai_recommendation": str(recommendation),
+        "detailed_analysis": detailed_analysis,
+        "explainability": explainability,
+        "key_metrics": output.get("key_metrics") if isinstance(output.get("key_metrics"), dict) else profile_snapshot,
+        "action_plan": output.get("action_plan") if isinstance(output.get("action_plan"), list) else [
+            "Review the recommendation against your current goals.",
+            "Add missing profile details and regenerate the report for a more specific plan.",
+        ],
+        "risks": output.get("risks") if isinstance(output.get("risks"), list) else [],
+        "assumptions": output.get("assumptions") if isinstance(output.get("assumptions"), list) else [
+            "The report uses only the profile and context available at generation time."
+        ],
+        "missing_information": output.get("missing_information") if isinstance(output.get("missing_information"), list) else [],
+        "confidence_level": output.get("confidence_level") or "Low",
+        "confidence_reason": output.get("confidence_reason") or "Some report sections were not returned by the model.",
+    })
+    return normalized
+
 def generate_report(
     db: Session, user_id: str, user_name: str, domain: str, conversation_id: Optional[str] = None
 ) -> Report:
@@ -112,7 +161,12 @@ def generate_report(
     )
     
     # We pass a simple user message to trigger generation
-    llm_output = call_llm(system_prompt, "Generate the advisory report based on the provided context.", temperature=0.5)
+    llm_output = call_llm(
+        system_prompt,
+        "Generate the advisory report based on the provided context.",
+        temperature=0.5,
+        max_tokens=2500,
+    )
 
     # 3. Prepare Report Data Structure
     end_time = time.time()
@@ -132,7 +186,7 @@ def generate_report(
         "ai_model": "llama-3.3-70b-versatile",
         "conversation_id": conversation_id,
         "profile_snapshot": profile_snapshot,
-        "llm_output": llm_output if isinstance(llm_output, dict) else {}
+        "llm_output": _normalize_report_output(llm_output, domain, profile_snapshot)
     }
 
     # 4. Generate PDF
