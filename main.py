@@ -15,7 +15,6 @@ import agents.health_agent as health
 import agents.finance_agent as finance
 from core.intent_detector import detect_intent
 from core.safety_layer import check_safety, check_relevance
-from langchain_agents.meta_lc_agent import meta_lc_agent
 
 load_dotenv()
 
@@ -230,6 +229,7 @@ def api_status():
 
 @app.post("/query")
 async def handle_query(request: QueryRequest):
+    """Legacy domain-analysis endpoint used by the domain detail pages."""
     return await meta_agent(request)
 
 @app.get("/domains")
@@ -245,8 +245,3 @@ def get_domains():
 @app.get("/health-check")
 def health_check():
     return {"status": "ok"}
-
-@app.post("/query-langchain")
-async def handle_query_langchain(request: QueryRequest):
-    """LangChain powered version — for comparison testing."""
-    return await meta_lc_agent(request)
