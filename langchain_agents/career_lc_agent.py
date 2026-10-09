@@ -9,13 +9,14 @@ from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
+from core.config import settings
 
 load_dotenv()
 
 # ── LLM ──────────────────────────────────────────────────────
 llm = ChatGroq(
     api_key=os.getenv("GROQ_API_KEY"),
-    model="llama-3.3-70b-versatile",
+    model=settings.GROQ_MODEL,
     temperature=0.7
 )
 
@@ -90,6 +91,12 @@ Use your tools and give specific career advice."""
 
         # Get last message content
         last_msg = result["messages"][-1].content
+        if isinstance(last_msg, list):
+            last_msg = "".join(
+                item.get("text", "") if isinstance(item, dict) else str(item)
+                for item in last_msg
+            )
+        last_msg = str(last_msg)
 
         # Extract JSON
         match = re.search(r'\{[^{}]*"recommendation"[^{}]*\}', last_msg, re.DOTALL)
