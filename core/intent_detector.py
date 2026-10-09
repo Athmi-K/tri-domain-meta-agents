@@ -36,7 +36,14 @@ def detect_intent(query: str) -> dict:
         }
 
     # ── Sort by match strength ────────────────────────────────
-    matched = sorted(matched, key=lambda d: match_scores[d], reverse=True)
+    # Prefer finance when a finance query is tied with career language such as
+    # "salary". This keeps investment questions from being routed to career.
+    domain_priority = {"finance": 2, "health": 1, "career": 0}
+    matched = sorted(
+        matched,
+        key=lambda d: (match_scores[d], domain_priority.get(d, 0)),
+        reverse=True,
+    )
 
     # ── Confidence based on number of domains ─────────────────
     if len(matched) == 1:

@@ -13,8 +13,14 @@ BLOCKED_KEYWORDS = [
     "lie on resume", "lie in resume", "lie about experience",
     # Self harm
     "suicide", "self harm", "end my life", "kill myself",
+    "how to die", "ways to die", "want to die",
     # Hate
     "hate", "racist", "discriminate"
+]
+
+SELF_HARM_KEYWORDS = [
+    "suicide", "self harm", "end my life", "kill myself",
+    "how to die", "ways to die", "want to die",
 ]
 
 SENSITIVE_TOPICS = [
@@ -123,6 +129,26 @@ def check_safety(query: str) -> dict:
         message      → message to show user
     """
     query_lower = normalize_query(query)
+
+    # Self-harm requests need a supportive response rather than a generic
+    # domain-routing message.
+    for keyword in SELF_HARM_KEYWORDS:
+        if has_blocked_keyword(query_lower, keyword):
+            return {
+                "is_safe": False,
+                "is_sensitive": True,
+                "reason": f"Self-harm content detected: '{keyword}'",
+                "message": (
+                    "I’m sorry you’re feeling this way. I can’t help with ways "
+                    "to die, but I can stay with you and help you get through "
+                    "the next few minutes. If you might act on these thoughts "
+                    "or are in immediate danger, call your local emergency "
+                    "number now or go to the nearest emergency department. "
+                    "Please also contact someone you trust and ask them to "
+                    "stay with you. If you can, tell me: are you in immediate "
+                    "danger right now?"
+                ),
+            }
 
     # Hard block — never proceed
     for keyword in BLOCKED_KEYWORDS:
