@@ -28,7 +28,9 @@ class Settings(BaseSettings):
 
     # ── Groq ────────────────────────────────────────────────────
     GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    # llama-3.3-70b-versatile was retired by Groq. Keep one shared,
+    # configurable model for both the standard and LangChain paths.
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
 
     # ── RAG ─────────────────────────────────────────────────────
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"

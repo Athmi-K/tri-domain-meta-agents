@@ -183,7 +183,7 @@ def generate_report(
         "time": now.strftime("%H:%M:%S"),
         "response_time": response_time,
         "version": "1.1",
-        "ai_model": "llama-3.3-70b-versatile",
+        "ai_model": settings.GROQ_MODEL,
         "conversation_id": conversation_id,
         "profile_snapshot": profile_snapshot,
         "llm_output": _normalize_report_output(llm_output, domain, profile_snapshot)
