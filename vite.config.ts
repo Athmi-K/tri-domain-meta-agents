@@ -23,7 +23,6 @@ export default defineConfig(({ mode }) => {
         '/chat': backendTarget,
         '/reports': backendTarget,
         '/query': backendTarget,
-        '/query-langchain': backendTarget,
         '/domains': backendTarget,
         '/health-check': backendTarget,
         '/api-status': backendTarget,

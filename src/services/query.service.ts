@@ -7,11 +7,6 @@ export const queryService = {
     return res.data
   },
 
-  async queryLangchain(data: QueryRequest): Promise<QueryResponse> {
-    const res = await api.post<QueryResponse>('/query-langchain', data)
-    return res.data
-  },
-
   async getDomains(): Promise<{ domains: Domain[] }> {
     const res = await api.get<{ domains: Domain[] }>('/domains')
     return res.data

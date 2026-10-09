@@ -1,8 +1,7 @@
 
 import { motion } from 'framer-motion'
-import { MessageSquare, Trash2 } from 'lucide-react'
+import { MessageSquare } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { formatRelativeDate } from '@/utils'
 import type { ConversationSummary } from '@/types'
@@ -10,11 +9,10 @@ import type { ConversationSummary } from '@/types'
 interface ConversationCardProps {
   conversation: ConversationSummary
   onClick?: () => void
-  onDelete?: () => void
   isActive?: boolean
 }
 
-export function ConversationCard({ conversation, onClick, onDelete, isActive }: ConversationCardProps) {
+export function ConversationCard({ conversation, onClick, isActive }: ConversationCardProps) {
   return (
     <motion.div whileHover={{ x: 2 }} transition={{ duration: 0.15 }}>
       <Card
@@ -34,19 +32,6 @@ export function ConversationCard({ conversation, onClick, onDelete, isActive }: 
             </div>
             <p className="text-sm font-medium truncate">Conversation #{conversation.id.slice(0, 8)}</p>
           </div>
-          {onDelete && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100"
-              onClick={(e) => {
-                e.stopPropagation()
-                onDelete()
-              }}
-            >
-              <Trash2 className="h-4 w-4 text-muted-foreground" />
-            </Button>
-          )}
         </CardContent>
       </Card>
     </motion.div>

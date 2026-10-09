@@ -146,8 +146,12 @@ export interface ChatResponse {
   answer: string
   reason?: string | null
   confidence?: number | null
+  confidence_level?: string | null
   memory_saved: string[]
   sources: string[]
+  tools_used?: string[]
+  tool_outputs?: Record<string, unknown> | null
+  explainability?: Record<string, unknown> | null
   messages?: Message[]
 }
 
