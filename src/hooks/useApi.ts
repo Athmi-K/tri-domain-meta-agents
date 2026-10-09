@@ -1,7 +1,5 @@
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { API_BASE_URL } from '@/utils/constants'
 import {
   authService,
   assessmentService,
@@ -103,7 +101,6 @@ export function useCreateMemory() {
 }
 
 export function useChatHistory() {
-  const qc = useQueryClient()
   const { user } = useAuth()
   const userId = user?.id ?? ''
   const query = useQuery({
@@ -111,41 +108,6 @@ export function useChatHistory() {
     queryFn: () => chatService.getHistory(),
     enabled: !!user?.id,
   })
-
-  useEffect(() => {
-    if (!user?.id) return
-
-    const base = API_BASE_URL || window.location.origin
-    const wsBase = base.replace(/^http/, 'ws')
-    const wsUrl = `${wsBase}/chat/ws`
-    let ws: WebSocket
-    try {
-      ws = new WebSocket(wsUrl)
-    } catch {
-      return
-    }
-
-    ws.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data)
-        if (msg.type === 'conversation_created') {
-          qc.setQueryData(queryKeys.chatHistory(user.id), (old: any[] | undefined) => {
-            const existing = old ?? []
-            const filtered = existing.filter((c) => c.id !== msg.payload.id)
-            return [msg.payload, ...filtered].slice(0, 10)
-          })
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    return () => {
-      try {
-        ws.close()
-      } catch {}
-    }
-  }, [qc, user?.id])
 
   return query
 }
@@ -246,12 +208,6 @@ export function useApiStatus() {
 export function useQueryMutation() {
   return useMutation({
     mutationFn: (data: QueryRequest) => queryService.query(data),
-  })
-}
-
-export function useLangchainQuery() {
-  return useMutation({
-    mutationFn: (data: QueryRequest) => queryService.queryLangchain(data),
   })
 }
 
