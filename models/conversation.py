@@ -23,7 +23,9 @@ class Conversation(Base):
 
     id = Column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
     user_id = Column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False, index=True)
-    domain = Column(String(20), nullable=False)  # "career" | "health" | "finance"
+    domain = Column(
+        String(20), nullable=False
+    )  # career | health | finance | multidomain | general | blocked
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="conversations")

@@ -85,8 +85,9 @@ health_agent = create_react_agent(llm, tools, prompt=SYSTEM_PROMPT)
 def run(request) -> dict:
     query = getattr(request, "query", "")
     intent = detect_intent(query)
-    detected_domain = (intent.get("domains") or ["general"])[0]
-    if detected_domain != "health":
+    detected_domains = intent.get("domains") or ["general"]
+    detected_domain = detected_domains[0]
+    if "health" not in detected_domains:
         domain_label = {
             "career": "Career",
             "finance": "Finance",

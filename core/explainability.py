@@ -70,7 +70,13 @@ def build_explainability(domain: str, agent_response: dict, request) -> dict:
         if "fitness" in agent_response:
             ft = agent_response["fitness"]
             data_used.append(f"Fitness score: {ft['fitness_score']}/100 ({ft['fitness_level']})")
-            data_used.append(f"Weight to lose: {ft['weight_to_lose_kg']} kg")
+            bmi_category = agent_response.get("bmi", {}).get("category")
+            if bmi_category == "Underweight":
+                data_used.append(
+                    f"Weight to gain toward a healthy range: {ft['weight_to_gain_kg']} kg"
+                )
+            else:
+                data_used.append(f"Weight to lose: {ft['weight_to_lose_kg']} kg")
 
         if "sleep" in agent_response:
             sl = agent_response["sleep"]
@@ -88,6 +94,10 @@ def build_explainability(domain: str, agent_response: dict, request) -> dict:
                 decision_factors.append("BMI in obese range — weight loss is urgent priority")
             elif bmi["category"] == "Overweight":
                 decision_factors.append("BMI in overweight range — gradual weight loss recommended")
+            elif bmi["category"] == "Underweight":
+                decision_factors.append(
+                    "BMI in underweight range — focus on gradual, nutritious weight gain"
+                )
             else:
                 decision_factors.append("BMI in healthy range — focus on maintaining fitness")
 

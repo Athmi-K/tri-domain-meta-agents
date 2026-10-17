@@ -12,7 +12,7 @@ from langchain_agents.career_lc_agent import run as career_run
 from langchain_agents.health_lc_agent import run as health_run
 from langchain_agents.finance_lc_agent import run as finance_run
 from core.intent_detector import detect_intent
-from core.safety_layer import check_safety, check_relevance
+from core.safety_layer import check_safety, check_relevance, is_uncertainty_request
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
@@ -143,6 +143,21 @@ def _build_chat_request(db: Session, user_id: str, query: str) -> SimpleNamespac
     return request
 
 
+def _states_no_income(query: str) -> bool:
+    normalized = query.lower().replace("-", " ")
+    return any(
+        phrase in normalized
+        for phrase in (
+            "no income",
+            "dont have income",
+            "don't have income",
+            "do not have income",
+            "without income",
+            "not earning",
+        )
+    )
+
+
 def run_chat_agent(db: Session, user_id: str, domain: str, query: str) -> dict:
     """Run the official LangChain domain agent for an authenticated chat."""
     safety = check_safety(query)
@@ -154,6 +169,57 @@ def run_chat_agent(db: Session, user_id: str, domain: str, query: str) -> dict:
             "message": safety["message"],
             "reason": safety["reason"],
             "confidence": 1.0,
+            "confidence_level": "High",
+        }
+
+    # Intent detection uses "general" when a query does not match any of the
+    # supported domains. Keep that result in the normal chat response flow
+    # rather than trying to look up a non-existent domain agent.
+    if domain == "general":
+        relevance = check_relevance(query)
+        intent = detect_intent(query)
+        if intent.get("ambiguous"):
+            return {
+                "status": "clarification_needed",
+                "domain": domain,
+                "tools_used": [],
+                "message": (
+                    "Could you clarify what you mean by feeling tired? "
+                    "Are you asking about sleep, physical fatigue, stress, "
+                    "or something else?"
+                ),
+                "reason": intent["reasoning"],
+                "confidence": intent["confidence"],
+                "confidence_level": "Low",
+            }
+        return {
+            "status": "out_of_scope",
+            "domain": domain,
+            "tools_used": [],
+            "message": (
+                relevance.get("message")
+                or "Please ask a question about Career, Health, or Finance."
+            ),
+            "reason": "No supported chat domain was detected",
+            "confidence": 0.0,
+            "confidence_level": "Low",
+        }
+
+    if domain == "finance" and _states_no_income(query):
+        return {
+            "status": "success",
+            "domain": "finance",
+            "tools_used": [],
+            "message": (
+                "Because you currently have no income, do not commit to "
+                "investments that require regular contributions. First cover "
+                "essential college costs, keep a small cash buffer, and build "
+                "an emergency fund from scholarships, family support, or "
+                "future earnings. Once you have stable income and a defined "
+                "goal, we can compare suitable low-risk options."
+            ),
+            "reason": "The current query states that the user has no income",
+            "confidence": 0.9,
             "confidence_level": "High",
         }
 
@@ -176,6 +242,77 @@ def run_chat_agent(db: Session, user_id: str, domain: str, query: str) -> dict:
             domain, request, result
         )
     return result
+
+
+def run_chat_agents(
+    db: Session, user_id: str, domains: list[str], query: str
+) -> dict:
+    """Run each detected domain agent and combine their chat responses."""
+    if is_uncertainty_request(query):
+        return {
+            "status": "success",
+            "domain": domains[0] if domains else "general",
+            "domains": domains,
+            "message": (
+                "No one can reliably guarantee an exact future salary or "
+                "investment return. Salary depends on role, skills, location, "
+                "employer, and market conditions. Investment returns vary with "
+                "the asset, time horizon, fees, and market risk; past "
+                "performance is not a guarantee. I can help estimate a salary "
+                "range and compare conservative, moderate, or aggressive "
+                "scenarios instead."
+            ),
+            "reason": "The request asks for unknowable exact future outcomes",
+            "tools_used": [],
+            "confidence": 0.2,
+            "confidence_level": "Low",
+        }
+    results = [run_chat_agent(db, user_id, domain, query) for domain in domains]
+    if not results:
+        return run_chat_agent(db, user_id, "general", query)
+
+    answers = []
+    tools_used = []
+    explainability = []
+    reported_confidences = []
+    for result in results:
+        answer = (
+            result.get("recommendation")
+            or result.get("message")
+            or result.get("summary")
+            or result.get("content")
+        )
+        if answer:
+            label = result.get("domain", "Domain").title()
+            answers.append(f"{label} perspective:\n{answer}")
+        tools_used.extend(result.get("tools_used", []))
+        if result.get("explainability"):
+            explainability.append(result["explainability"])
+        confidence = result.get("confidence")
+        if isinstance(confidence, (int, float)) and 0 <= confidence <= 1:
+            reported_confidences.append(float(confidence))
+
+    combined = {
+        "status": "success",
+        "domain": domains[0],
+        "domains": domains,
+        "message": "\n\n".join(answers),
+        "tools_used": list(dict.fromkeys(tools_used)),
+        "confidence": (
+            sum(reported_confidences) / len(reported_confidences)
+            if reported_confidences
+            else None
+        ),
+        "confidence_level": "High" if all(
+            result.get("confidence_level") == "High" for result in results
+        ) else ("Medium" if reported_confidences else None),
+    }
+    if explainability:
+        combined["explainability"] = {
+            "domain_explanations": dict(zip(domains, explainability))
+        }
+    return combined
+
 
 async def meta_lc_agent(request) -> dict:
     """

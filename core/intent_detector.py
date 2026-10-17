@@ -2,6 +2,12 @@ from core.llm_client import call_llm
 from core.safety_layer import normalize_query, DOMAIN_KEYWORDS, has_keyword
 
 
+def _is_ambiguous_query(query: str) -> bool:
+    """Identify short symptom-only queries that need clarification."""
+    normalized = query.strip().lower().strip(" .!?")
+    return normalized in {"tired", "i am tired", "i'm tired", "i feel tired"}
+
+
 def detect_intent(query: str) -> dict:
     """
     Detects which domain(s) a query belongs to.
@@ -15,6 +21,14 @@ def detect_intent(query: str) -> dict:
             "domains":    ["general"],
             "confidence": 0.0,
             "reasoning":  "Empty query"
+        }
+
+    if _is_ambiguous_query(query_lower):
+        return {
+            "domains": ["general"],
+            "confidence": 0.2,
+            "ambiguous": True,
+            "reasoning": "The query is too vague to select a domain safely",
         }
 
     # ── Use shared DOMAIN_KEYWORDS — no duplicate list ────────

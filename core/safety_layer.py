@@ -1,6 +1,15 @@
 import re
+from core.domain_keywords import (
+    CAREER_INTENT_PHRASES,
+    CAREER_ROLE_KEYWORDS,
+    DOMAIN_KEYWORDS,
+)
 
 BLOCKED_KEYWORDS = [
+    # Prompt injection and secret-extraction attempts
+    "ignore all previous instructions", "ignore your instructions",
+    "bypass domain routing", "reveal your system prompt",
+    "reveal your prompt", "api keys", "system prompt",
     # Violence
     "hurt", "kill", "harm", "attack", "weapon", "bomb", "poison",
     # Illegal financial
@@ -26,64 +35,6 @@ SELF_HARM_KEYWORDS = [
 SENSITIVE_TOPICS = [
     "depression", "anxiety", "mental health",
     "burnout", "overwhelmed", "hopeless"
-]
-
-# ── Single source of truth for domain keywords ────────────────
-# Used by BOTH check_relevance() and detect_intent()
-DOMAIN_KEYWORDS = {
-    "career": [
-        "job", "work", "career", "skill", "resume", "cv",
-        "interview", "promotion", "switch", "role", "hire",
-        "scientist", "developer", "engineer", "analyst",
-        "learn", "course", "salary", "linkedin", "data science",
-        "placement", "internship", "fresher", "experience",
-        "want to become", "want to be", "become a", "become an",
-        "looking for a job", "switch careers", "change career",
-        "career advice", "career growth", "job advice"
-    ],
-    "health": [
-        "health", "weight", "bmi", "fitness", "exercise",
-        "diet", "sick", "doctor", "sleep", "tired", "gym",
-        "calories", "overweight", "fat", "muscle", "mental", "stress",
-        "eat", "food", "nutrition", "lose weight", "gain weight",
-        "workout", "anxiety", "mood", "wellness"
-    ],
-    "finance": [
-        "money", "saving", "invest", "debt", "loan", "budget",
-        "expense", "income", "tax", "emi", "rent", "insurance",
-        "sip", "ppf", "stock", "mutual fund", "earning",
-        "spend", "finance", "bank", "credit", "debit",
-        "financial", "stability", "wealth", "financial stability",
-        "retirement", "retire", "pension", "corpus",
-        "save for", "how much should i save", "savings goal",
-        "financial goal", "emergency fund", "net worth"
-    ]
-}
-
-CAREER_INTENT_PHRASES = [
-    "want to become",
-    "want to be",
-    "become a",
-    "become an",
-    "looking for a job",
-    "switch careers",
-    "change career",
-    "career advice",
-    "career growth",
-    "job advice",
-]
-
-CAREER_ROLE_KEYWORDS = [
-    "analyst",
-    "data analyst",
-    "data scientist",
-    "scientist",
-    "developer",
-    "engineer",
-    "manager",
-    "product manager",
-    "designer",
-    "tester",
 ]
 
 QUERY_NORMALIZATIONS = {
@@ -117,6 +68,18 @@ def has_keyword(query: str, keyword: str) -> bool:
 
 def has_blocked_keyword(query: str, keyword: str) -> bool:
     return has_keyword(query, keyword)
+
+
+def is_uncertainty_request(query: str) -> bool:
+    """Detect requests that ask for guarantees or exact future predictions."""
+    normalized = normalize_query(query)
+    return (
+        "guaranteed" in normalized
+        or "guarantee" in normalized
+        or "exact salary" in normalized
+        or "exact investment return" in normalized
+        or "exact return" in normalized
+    )
 
 
 def check_safety(query: str) -> dict:

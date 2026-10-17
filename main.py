@@ -14,7 +14,7 @@ import agents.career_agent as career
 import agents.health_agent as health
 import agents.finance_agent as finance
 from core.intent_detector import detect_intent
-from core.safety_layer import check_safety, check_relevance
+from core.safety_layer import check_safety, check_relevance, is_uncertainty_request
 
 load_dotenv()
 
@@ -191,6 +191,17 @@ async def meta_agent(request: QueryRequest) -> dict:
     # Step 3 — Intent
     if request.domain == "auto":
         intent  = detect_intent(request.query)
+        if intent.get("ambiguous"):
+            return {
+                "status": "clarification_needed",
+                "intent": intent,
+                "message": (
+                    "Could you clarify what you mean by feeling tired? "
+                    "Are you asking about sleep, physical fatigue, stress, "
+                    "or something else?"
+                ),
+                "domains_activated": [],
+            }
         domains = intent["domains"]
     else:
         intent = {
@@ -199,6 +210,28 @@ async def meta_agent(request: QueryRequest) -> dict:
             "reasoning":  "Manual domain selection"
         }
         domains = [request.domain]
+
+    if is_uncertainty_request(request.query):
+        return {
+            "status": "success",
+            "intent": intent,
+            "domains_activated": domains,
+            "responses": [{
+                "domain": "multidomain" if len(domains) > 1 else domains[0],
+                "recommendation": (
+                    "No one can reliably guarantee an exact future salary or "
+                    "investment return. Salary depends on role, skills, "
+                    "location, employer, and market conditions. Investment "
+                    "returns vary with the asset, time horizon, fees, and "
+                    "market risk; past performance is not a guarantee. I can "
+                    "help estimate a salary range and compare conservative, "
+                    "moderate, or aggressive scenarios instead."
+                ),
+                "reason": "The request asks for unknowable exact future outcomes",
+                "confidence": 0.2,
+                "confidence_level": "Low",
+            }],
+        }
 
     # Step 4 — Run agents in parallel ─────────────────────────
     responses = await run_agents_parallel(domains, request)

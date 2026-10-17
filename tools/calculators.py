@@ -256,6 +256,7 @@ def fitness_score(
         "bmi": bmi,
         "ideal_weight_range_kg": {"min": ideal_min, "max": ideal_max},
         "weight_to_lose_kg": round(max(0, weight_kg - ideal_max), 1),
+        "weight_to_gain_kg": round(max(0, ideal_min - weight_kg), 1),
         "score_breakdown": {
             "bmi_component": bmi_score,
             "age_component": age_score,
