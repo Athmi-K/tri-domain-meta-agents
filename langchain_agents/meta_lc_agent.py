@@ -8,7 +8,10 @@ import agents.health_agent as health_original
 import agents.finance_agent as finance_original
 from sqlalchemy.orm import Session
 from types import SimpleNamespace
-from langchain_agents.career_lc_agent import run as career_run
+from langchain_agents.career_lc_agent import (
+    _build_career_explainability,
+    run as career_run,
+)
 from langchain_agents.health_lc_agent import run as health_run
 from langchain_agents.finance_lc_agent import run as finance_run
 from core.intent_detector import detect_intent
@@ -26,8 +29,8 @@ FALLBACK_AGENTS = {
 
 
 def _build_chat_explainability(domain: str, request, result: dict) -> dict:
-    """Build useful explainability when a LangChain agent returns no details."""
-    data_used = ["Current user query"]
+    """Build explainability from values and executions present in the result."""
+    data_used = [f"Original query: {getattr(request, 'query', '')}"]
     decision_factors = []
 
     if domain == "career":
@@ -38,15 +41,37 @@ def _build_chat_explainability(domain: str, request, result: dict) -> dict:
             "Location": getattr(request, "location", None),
             "Timeline": getattr(request, "timeline_months", None),
         }
+        tools_used = result.get("tools_used", [])
+        used_profile_fields = {
+            "skill_gap_tool": {"Current skills", "Target role"},
+            "skill_gap_analyzer": {"Current skills", "Target role"},
+            "job_search_tool": {"Current skills", "Location", "Experience level"},
+            "job_search": {"Current skills", "Location", "Experience level"},
+            "salary_benchmark_tool": {"Target role", "Location"},
+            "salary_benchmark": {"Target role", "Location"},
+            "learning_path_tool": {"Target role", "Experience level", "Timeline"},
+            "learning_path_generator": {"Target role", "Experience level", "Timeline"},
+            "resume_optimizer": {"Target role"},
+        }
+        fields_used = set().union(
+            *(used_profile_fields.get(tool, set()) for tool in tools_used)
+        )
         data_used.extend(
             f"{label}: {value}"
             for label, value in profile_fields.items()
-            if value not in (None, "", [], {})
+            if label in fields_used and value not in (None, "", [], {})
         )
         next_steps = [
-            "Compare the recommendation with your target role and current skills.",
-            "Provide your resume or a specific target role for a more tailored analysis.",
+            "Review the recommendation against the question and evidence used."
         ]
+        if not tools_used:
+            decision_factors.append(
+                "The answer was generated without career-tool execution."
+            )
+        else:
+            decision_factors.append(
+                "The answer used only the career tools listed in the execution trace."
+            )
     elif domain == "health":
         profile_fields = {
             "Age": getattr(request, "age", None),
@@ -74,22 +99,62 @@ def _build_chat_explainability(domain: str, request, result: dict) -> dict:
     reason = result.get("reason")
     if reason:
         decision_factors.append(str(reason))
-    else:
-        decision_factors.append(
-            f"The {domain} agent evaluated the query using the available profile fields."
-        )
 
     confidence = result.get("confidence")
+    has_defensible_confidence = (
+        isinstance(confidence, (int, float)) and 0 <= confidence <= 1
+    )
     confidence_text = (
         f"The {domain} agent reported confidence of {confidence}."
-        if confidence is not None
-        else f"The {domain} agent did not report a confidence score."
+        if has_defensible_confidence
+        else "No confidence score was reported."
     )
+    tool_outputs = result.get("tool_outputs", {})
+    failed_tools = list(result.get("failed_tools", []))
+    if isinstance(tool_outputs, dict):
+        failed_tools.extend(
+            tool_name
+            for tool_name, output in tool_outputs.items()
+            if isinstance(output, dict) and output.get("status") == "failed"
+        )
+    failed_tools = list(dict.fromkeys(failed_tools))
+    limitations = []
+    if failed_tools:
+        limitations.append(f"Tools that failed: {', '.join(map(str, failed_tools))}.")
+    if not result.get("sources"):
+        limitations.append("No retrieved sources were recorded.")
+    if not result.get("tools_used"):
+        limitations.append("No career-tool evidence was recorded.")
+    profile_values_used = {}
+    if domain == "career":
+        profile_values_used = {
+            label: getattr(request, attribute, None)
+            for label, attribute in {
+                "Target role": "target_role",
+                "Current skills": "current_skills",
+                "Experience level": "experience_level",
+                "Location": "location",
+                "Timeline": "timeline_months",
+            }.items()
+            if label in fields_used
+            and getattr(request, attribute, None) not in (None, "", [], {})
+        }
     return {
+        "original_query": getattr(request, "query", ""),
+        "selected_agent": result.get("agent_type", f"{domain}_agent"),
         "data_used": data_used,
+        "profile_values_used": profile_values_used,
         "decision_factors": decision_factors,
         "next_steps": next_steps,
         "confidence_explanation": confidence_text,
+        "tools_invoked": result.get("tools_used", []),
+        "tool_statuses": {
+            tool_name: output.get("status")
+            for tool_name, output in tool_outputs.items()
+            if isinstance(output, dict)
+        } if isinstance(tool_outputs, dict) else {},
+        "retrieved_sources": result.get("sources", []),
+        "limitations": limitations,
     }
 
 
@@ -107,13 +172,14 @@ def _build_chat_request(db: Session, user_id: str, query: str) -> SimpleNamespac
         name="User",
         age=getattr(general, "age", 25) or 25,
         query=query,
+        current_query=query,
         current_skills=getattr(career, "current_skills", None) or [],
-        target_role=getattr(career, "target_role", None) or "data scientist",
-        location=getattr(general, "location", None) or "Bangalore",
-        experience_level=getattr(career, "experience_level", None) or "beginner",
+        target_role=getattr(career, "target_role", None),
+        location=getattr(general, "location", None),
+        experience_level=getattr(career, "experience_level", None),
         years_experience=0,
-        timeline_months=6,
-        current_level=getattr(career, "experience_level", None) or "beginner",
+        timeline_months=None,
+        current_level=getattr(career, "experience_level", None),
         weight_kg=getattr(general, "weight_kg", None) or 70,
         height_cm=getattr(general, "height_cm", None) or 170,
         sleep_hours=getattr(health, "sleep_hours", None) or 7,
@@ -235,9 +301,19 @@ def run_chat_agent(db: Session, user_id: str, domain: str, query: str) -> dict:
     if not isinstance(result, dict):
         raise TypeError(f"{domain} agent returned an invalid response")
 
-    # Keep the shared chat contract consistent when a LangChain agent does not
-    # provide the richer explainability block used by the tool pipelines.
-    if not result.get("explainability"):
+    if domain == "career":
+        # Complete partial metadata without replacing values recorded by the
+        # Career agent. Empty values remain meaningful execution evidence.
+        generated = _build_career_explainability(request, result)
+        existing = result.get("explainability")
+        if isinstance(existing, dict):
+            generated.update({
+                key: value
+                for key, value in existing.items()
+                if value not in (None, "", {}, [])
+            })
+        result["explainability"] = generated
+    elif not result.get("explainability"):
         result["explainability"] = _build_chat_explainability(
             domain, request, result
         )
