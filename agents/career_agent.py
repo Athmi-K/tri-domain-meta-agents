@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from core.llm_client import call_llm
@@ -14,6 +15,116 @@ from tools.career_tools import (
     resume_optimizer,
     learning_path_generator,
 )
+
+
+_CAREER_ANALYSIS_TERMS = (
+    "career",
+    "job",
+    "role",
+    "salary",
+    "resume",
+    "cv",
+    "interview",
+    "placement",
+    "skill gap",
+    "roadmap",
+    "learning plan",
+    "upskill",
+    "switch",
+    "promotion",
+    "hire",
+)
+_KNOWN_LOCATIONS = {
+    "ahmedabad",
+    "bengaluru",
+    "bangalore",
+    "bhubaneswar",
+    "chandigarh",
+    "chennai",
+    "coimbatore",
+    "delhi",
+    "gurgaon",
+    "hyderabad",
+    "jaipur",
+    "kochi",
+    "kolkata",
+    "mumbai",
+    "noida",
+    "pune",
+    "remote",
+    "india",
+    "anywhere",
+}
+
+
+def _should_run_career_analysis(query: str, resume_text: str) -> bool:
+    """Return whether the request needs the career-analysis tools."""
+    if resume_text:
+        return True
+    if not query.strip():
+        return True
+    normalized_query = query.casefold()
+    return any(term in normalized_query for term in _CAREER_ANALYSIS_TERMS)
+
+
+def _as_optional_text(value: Any) -> str | None:
+    """Return usable text without turning missing profile data into a fact."""
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    return value or None
+
+
+def _validated_location(value: Any) -> str | None:
+    location = _as_optional_text(value)
+    if location and location.casefold() in _KNOWN_LOCATIONS:
+        return location
+    return None
+
+
+def _schedule_constraints(query: str) -> str:
+    """Describe explicit schedule constraints for the summary model."""
+    normalized = query.casefold()
+    weeks_match = re.search(r"\b(\d+)\s*[- ]?\s*week", normalized)
+    hours_match = re.search(
+        r"\b(?:only\s*)?(\d+(?:\.\d+)?)\s*hours?\s*(?:per|a|/)\s*day\b",
+        normalized,
+    )
+    constraints = []
+    if weeks_match:
+        weeks = int(weeks_match.group(1))
+        constraints.append(
+            f"Use exactly {weeks} weeks ({weeks * 7} daily entries) "
+            "when a daily schedule is requested."
+        )
+    if hours_match:
+        constraints.append(
+            f"Plan for approximately {hours_match.group(1)} hour(s) per day."
+        )
+    language_match = re.search(
+        r"\b(?:in|using|with)\s+(java|python|c\+\+|javascript|typescript|go|rust)\b"
+        r"|\b(java|python|c\+\+|javascript|typescript|go|rust)\s+"
+        r"(?:placement|schedule|roadmap|plan)\b",
+        normalized,
+    )
+    if language_match:
+        language = next(
+            group for group in language_match.groups() if group is not None
+        )
+        constraints.append(f"Use the requested language: {language}.")
+    else:
+        constraints.append(
+            "Do not choose or force a programming language unless the user "
+            "requests one or validated profile data makes it necessary."
+        )
+    return " ".join(constraints)
+
+
+def _requested_timeline_months(query: str) -> int | None:
+    match = re.search(r"\b(\d+)\s*[- ]?\s*week", query.casefold())
+    if not match:
+        return None
+    return max(1, round(int(match.group(1)) / 4))
 
 
 def _get_request_value(
@@ -101,17 +212,25 @@ def _format_resume_result(resume_data: dict | None) -> str:
 
 
 CAREER_ADVISOR_SYSTEM_PROMPT = """
-You are a practical and honest career advisor.
+You are a practical and honest assistant in the Career domain.
+
+Answer the user's current query directly and prioritize it over any generic
+career-readiness workflow. For technical or educational questions, explain
+the requested topic and provide requested examples without adding a career
+roadmap. For career-guidance questions, use the supplied profile and career
+analysis data to give relevant advice. Do not invent facts, job listings,
+salary figures, profile details, or confidence scores.
 
 Return ONLY valid JSON.
 Return exactly one key named "summary".
-The value of "summary" must be a concise career advisory string.
+The value of "summary" must be a concise answer to the user's current query.
 Do not return Markdown outside the JSON object.
 Do not add extra keys.
 """
 
 
 def _build_summary_prompt(
+    current_query: str,
     target_role: str,
     current_skills: list,
     gap_data: dict,
@@ -131,8 +250,22 @@ def _build_summary_prompt(
     resume_text = _format_resume_result(resume_data)
 
     prompt = f"""
-Analyze the following career information and provide concise, practical,
-and realistic career-readiness advice.
+    Answer the user's current query directly and concisely.
+    Treat the current query as the primary instruction. Do not provide
+    unrelated career recommendations or force a career roadmap.
+
+    Current user query:
+    {current_query}
+
+    Explicit schedule constraints:
+    {_schedule_constraints(current_query)}
+
+    Use the following career information only when it is relevant to the
+    current query. For technical questions, answer the requested topic and
+    include requested examples. For career-guidance questions, use the
+    profile and analysis data below. Use only information supported by the
+    provided data; do not invent job listings, salary figures, profile
+    details, or confidence scores.
 
 Target role:
 {target_role}
@@ -155,14 +288,15 @@ Learning path:
 Resume analysis:
 {resume_text}
 
-The summary must cover:
-1. The user's current career position.
-2. The most important missing skills.
-3. A realistic learning order.
-4. Specific ways to improve job readiness.
-5. The top job opportunity, if available.
-6. Resume improvements, if resume analysis is available.
-7. Only information supported by the provided data.
+When discussing resume improvements, state only achievements supported by the
+resume analysis. If an achievement, certification, metric, or experience is
+missing, label it as missing and phrase any example conditionally ("if true,
+add evidence") rather than as a fact.
+
+For career-guidance questions, cover the relevant parts of the user's
+career position, missing skills, learning order, job readiness, job
+opportunities, and resume improvements. For other questions, omit these
+career details unless the user asks for them.
 
 Return ONLY valid JSON in this exact format:
 
@@ -194,28 +328,30 @@ def run(request: Any, constraints: str = "") -> dict:
     - resume_text: str
     """
     
+    current_query = _get_request_value(
+        request,
+        "current_query",
+        _get_request_value(request, "query", ""),
+    )
+
     current_skills = _get_request_value(
         request,
         "current_skills",
         [],
     )
 
-    target_role = _get_request_value(
-        request,
-        "target_role",
-        "data analyst",
-    )
+    target_role = _get_request_value(request, "target_role", None)
 
     location = _get_request_value(
         request,
         "location",
-        "Bangalore",
+        None,
     )
 
     experience_level = _get_request_value(
         request,
         "experience_level",
-        "entry",
+        None,
     )
 
     years_experience = _get_request_value(
@@ -227,13 +363,13 @@ def run(request: Any, constraints: str = "") -> dict:
     current_level = _get_request_value(
         request,
         "current_level",
-        "beginner",
+        None,
     )
 
     timeline_months = _get_request_value(
         request,
         "timeline_months",
-        6,
+        None,
     )
 
     resume_text = _get_request_value(
@@ -251,52 +387,64 @@ def run(request: Any, constraints: str = "") -> dict:
         if str(skill).strip()
     ]
 
-    target_role = str(target_role).strip()
-    location = str(location).strip()
-    experience_level = str(experience_level).strip()
-    current_level = str(current_level).strip()
+    target_role = _as_optional_text(target_role)
+    location = _validated_location(location)
+    experience_level = _as_optional_text(experience_level)
+    current_level = _as_optional_text(current_level)
     resume_text = str(resume_text).strip()
+    current_query = str(current_query).strip()
+    requested_timeline = _requested_timeline_months(current_query)
+    if requested_timeline is not None:
+        timeline_months = requested_timeline
 
-    # ---------------------------------------------------------
-    # 1. Analyze skill gaps
-    # ---------------------------------------------------------
+    analysis_requested = _should_run_career_analysis(current_query, resume_text)
 
-    gap_data = skill_gap_analyzer(
-        current_skills=current_skills,
-        target_role=target_role,
-    )
+    if not analysis_requested:
+        gap_data = {}
+        jobs_data = {}
+        salary_data = {}
+        path_data = {}
+    else:
+        # ---------------------------------------------------------
+        # 1. Analyze skill gaps
+        # ---------------------------------------------------------
+        gap_data = skill_gap_analyzer(
+            current_skills=current_skills,
+            target_role=target_role or "",
+        )
 
-    # ---------------------------------------------------------
-    # 2. Search and rank jobs
-    # ---------------------------------------------------------
+        # ---------------------------------------------------------
+        # 2. Search and rank jobs
+        # ---------------------------------------------------------
+        jobs_data = job_search(
+            target_role=target_role or "",
+            skills=current_skills,
+            location=location or "",
+            experience_level=experience_level or "",
+        )
 
-    jobs_data = job_search(
-        target_role=target_role,
-        skills=current_skills,
-        location=location,
-        experience_level=experience_level,
-    )
+        # ---------------------------------------------------------
+        # 3. Get salary information
+        # ---------------------------------------------------------
+        salary_data = salary_benchmark(
+            role=target_role or "",
+            location=location or "",
+            years_experience=years_experience or 0,
+        )
 
-    # ---------------------------------------------------------
-    # 3. Get salary information
-    # ---------------------------------------------------------
-
-    salary_data = salary_benchmark(
-        role=target_role,
-        location=location,
-        years_experience=years_experience,
-    )
-
-    # ---------------------------------------------------------
-    # 4. Generate learning path
-    # ---------------------------------------------------------
-
-    path_data = learning_path_generator(
-        target_role=target_role,
-        current_level=current_level,
-        timeline_months=timeline_months,
-        missing_skills=gap_data.get("missing_skills", []) if isinstance(gap_data, dict) else [],
-    )
+        # ---------------------------------------------------------
+        # 4. Generate learning path
+        # ---------------------------------------------------------
+        path_data = learning_path_generator(
+            target_role=target_role or "",
+            current_level=current_level or "",
+            timeline_months=timeline_months or 0,
+            missing_skills=(
+                gap_data.get("missing_skills", [])
+                if isinstance(gap_data, dict)
+                else []
+            ),
+        )
 
     # ---------------------------------------------------------
     # 5. Analyze resume if supplied
@@ -307,14 +455,39 @@ def run(request: Any, constraints: str = "") -> dict:
     if resume_text:
         resume_data = resume_optimizer(
             resume_text=resume_text,
-            target_job=target_role,
+            target_job=target_role or "",
         )
+
+    tool_outputs = {
+        "skill_gap_analyzer": gap_data,
+        "job_search": jobs_data,
+        "salary_benchmark": salary_data,
+        "learning_path_generator": path_data,
+    }
+    if resume_data is not None:
+        tool_outputs["resume_optimizer"] = resume_data
+    tools_used = [
+        name for name, output in tool_outputs.items()
+        if isinstance(output, dict)
+    ]
+    sources = []
+    for output in tool_outputs.values():
+        if not isinstance(output, dict):
+            continue
+        source_values = output.get("sources", output.get("source", []))
+        if isinstance(source_values, str):
+            source_values = [source_values]
+        if isinstance(source_values, list):
+            sources.extend(
+                source for source in source_values if isinstance(source, str)
+            )
 
     # ---------------------------------------------------------
     # 6. Build the language-model prompt
     # ---------------------------------------------------------
 
     summary_prompt = _build_summary_prompt(
+        current_query=current_query,
         target_role=target_role,
         current_skills=current_skills,
         gap_data=gap_data,
@@ -391,4 +564,17 @@ Additional constraints:
         "learning_path": path_data,
         "resume_analysis": resume_data,
         "summary": llm_response,
+        "tools_used": tools_used if analysis_requested else [],
+        "tool_outputs": (
+            {
+                name: {
+                    "status": "failed" if output.get("error") else "completed",
+                    "output": output,
+                }
+                for name, output in tool_outputs.items()
+            }
+            if analysis_requested
+            else {}
+        ),
+        "sources": list(dict.fromkeys(sources)) if analysis_requested else [],
     }

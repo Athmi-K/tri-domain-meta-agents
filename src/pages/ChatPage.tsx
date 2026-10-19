@@ -13,20 +13,12 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SUGGESTED_PROMPTS } from '@/utils/constants'
+import {
+  cloneResponseExplainability,
+  mapConversationMessages,
+  type LocalMessage,
+} from '@/utils/chatMessageMetadata'
 import type { ChatResponse } from '@/types'
-
-interface LocalMessage {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: string
-  domain?: string
-  confidence?: number | null
-  reason?: string | null
-  sources?: string[]
-  warning?: string
-  explainability?: Record<string, unknown>
-}
 
 export function ChatPage() {
   const location = useLocation()
@@ -90,24 +82,7 @@ export function ChatPage() {
 
   useEffect(() => {
     if (conversation?.messages) {
-      setMessages((prev) =>
-        conversation.messages.map((m) => {
-          const existingMessage = prev.find((msg) => msg.id === m.id)
-
-          return {
-            id: m.id,
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-            timestamp: m.timestamp,
-            domain: existingMessage?.domain ?? conversation.domain,
-            confidence: existingMessage?.confidence ?? null,
-            reason: existingMessage?.reason ?? null,
-            sources: existingMessage?.sources,
-            warning: existingMessage?.warning,
-            explainability: existingMessage?.explainability,
-          }
-        })
-      )
+      setMessages((prev) => mapConversationMessages(conversation.messages, prev))
     }
   }, [conversation])
 
@@ -137,19 +112,7 @@ export function ChatPage() {
       if (!conversationId) setConversationId(res.conversation_id)
 
       if (res.messages?.length) {
-        setMessages(
-          res.messages.map((m) => ({
-            id: m.id,
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-            timestamp: m.timestamp,
-            domain: m.role === 'assistant' ? res.domain : undefined,
-            confidence: m.role === 'assistant' ? res.confidence : undefined,
-            reason: m.role === 'assistant' ? res.reason : undefined,
-            sources: m.role === 'assistant' ? res.sources : undefined,
-            explainability: m.role === 'assistant' ? res.explainability ?? undefined : undefined,
-          }))
-        )
+        setMessages((prev) => mapConversationMessages(res.messages!, prev, res))
       } else {
         setMessages((prev) => [
           ...prev,
@@ -161,8 +124,8 @@ export function ChatPage() {
             domain: res.domain,
             confidence: res.confidence,
             reason: res.reason,
-            sources: res.sources,
-            explainability: res.explainability ?? undefined,
+            sources: [...res.sources],
+            explainability: cloneResponseExplainability(res.explainability),
           },
         ])
       }
