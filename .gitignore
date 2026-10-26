@@ -17,6 +17,7 @@ rag/tridomain_meta.pkl
 
 # Generated reports (created at runtime)
 reports/*.pdf
+benchmark_reports/*.json
 
 # Database files
 tridomain.db

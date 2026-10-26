@@ -7,7 +7,10 @@ import os
 import pickle
 import faiss
 import numpy as np
-from sentence_transformers import SentenceTransformer
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:
+    SentenceTransformer = None
 
 IDX_PATH  = os.path.join(os.path.dirname(__file__), "health_index.faiss")
 META_PATH = os.path.join(os.path.dirname(__file__), "health_meta.pkl")
@@ -22,8 +25,9 @@ _meta  = None
 def _load():
     global _model, _index, _meta
     if _model is None:
-        print("[RAG-Health] Loading retriever model...")
-        _model = SentenceTransformer(MODEL_NAME)
+        from core.embeddings import get_shared_embedding_model
+
+        _model = get_shared_embedding_model(MODEL_NAME)
     if _index is None:
         if not os.path.exists(IDX_PATH):
             raise FileNotFoundError(
