@@ -38,8 +38,9 @@ def _load():
         )
 
     if _model is None:
-        print("[RAG] Loading retriever model...")
-        _model = SentenceTransformer(MODEL_NAME)
+        from core.embeddings import get_shared_embedding_model
+
+        _model = get_shared_embedding_model(MODEL_NAME)
     if _index is None:
         if not os.path.exists(IDX_PATH):
             raise FileNotFoundError(

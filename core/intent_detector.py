@@ -1,5 +1,10 @@
 from core.llm_client import call_llm
-from core.safety_layer import normalize_query, DOMAIN_KEYWORDS, has_keyword
+from core.safety_layer import (
+    DOMAIN_KEYWORDS,
+    extract_domain_signals,
+    has_keyword,
+    normalize_query,
+)
 
 
 def _is_ambiguous_query(query: str) -> bool:
@@ -11,7 +16,7 @@ def _is_ambiguous_query(query: str) -> bool:
 def detect_intent(query: str) -> dict:
     """
     Detects which domain(s) a query belongs to.
-    Uses DOMAIN_KEYWORDS from safety_layer — single source of truth.
+    Uses DOMAIN_KEYWORDS and phrase-aware negation handling from safety_layer.
     No duplicate keyword lists.
     """
     query_lower = normalize_query(query)
@@ -31,15 +36,9 @@ def detect_intent(query: str) -> dict:
             "reasoning": "The query is too vague to select a domain safely",
         }
 
-    # ── Use shared DOMAIN_KEYWORDS — no duplicate list ────────
-    matched = []
-    match_scores = {}
-
-    for domain, keywords in DOMAIN_KEYWORDS.items():
-        score = sum(1 for kw in keywords if has_keyword(query_lower, kw))
-        if score > 0:
-            matched.append(domain)
-            match_scores[domain] = score
+    # ── Phrase-aware domain extraction with explicit negation handling ──
+    active_domains, match_scores, negated_domains = extract_domain_signals(query_lower)
+    matched = [d for d in active_domains if match_scores.get(d, 0) > 0]
 
     # ── No match fallback ─────────────────────────────────────
     if not matched:
