@@ -25,7 +25,7 @@ DOMAIN_KEYWORDS = {
         "anxiety", "mood", "wellness", "wellbeing", "symptom", "symptoms",
         "pain", "medication", "blood pressure", "heart rate",
         "running", "walking", "strength training", "cardio", "hydration",
-        "sleep quality", "insomnia", "burnout",
+        "sleep quality", "insomnia", "burnout", "sleeping", "healthy",
     ],
     "finance": [
         "money", "saving", "savings", "invest", "investment", "investments",
@@ -33,7 +33,7 @@ DOMAIN_KEYWORDS = {
         "college expenses", "tuition", "income", "tax", "taxes", "emi",
         "rent", "insurance", "sip", "ppf", "stock", "stocks", "mutual fund",
         "mutual funds", "earning", "earnings", "spend", "spending", "finance",
-        "financial", "bank", "banking", "credit", "debit", "stability",
+        "financial", "finances", "bank", "banking", "credit", "debit", "stability",
         "wealth", "financial stability", "retirement", "retire", "pension",
         "corpus", "cash flow", "net worth", "emergency fund", "interest",
         "return", "returns", "portfolio", "risk tolerance", "risk appetite",

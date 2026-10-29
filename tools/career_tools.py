@@ -13,7 +13,12 @@ from core.career_rag_context import get_active_career_rag_context
 
 import requests
 from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer, util
+
+try:
+    from sentence_transformers import SentenceTransformer, util
+except ImportError:
+    SentenceTransformer = None
+    util = None
 
 logger = logging.getLogger(__name__)
 
@@ -47,32 +52,15 @@ def _rag_enabled() -> bool:
 # EMBEDDING MODEL
 # =========================================================
 
-@lru_cache(maxsize=1)
 def get_embedding_model() -> SentenceTransformer | None:
     """
-    Load the embedding model once and reuse it.
+    Load the embedding model once and reuse it via the shared singleton.
     Returns None if loading fails.
     """
-
-    hf_token = os.getenv("HF_TOKEN") or None
-
     try:
-        logger.info(
-            "Loading embedding model: %s",
-            EMBEDDING_MODEL_NAME,
-        )
+        from core.embeddings import get_shared_embedding_model
 
-        model = SentenceTransformer(
-            EMBEDDING_MODEL_NAME,
-            token=hf_token,
-        )
-
-        logger.info(
-            "Embedding model loaded successfully: %s",
-            EMBEDDING_MODEL_NAME,
-        )
-
-        return model
+        return get_shared_embedding_model(EMBEDDING_MODEL_NAME)
 
     except Exception:
         logger.exception(
@@ -491,6 +479,8 @@ def _extract_skills_with_llm(
 def _encode_texts(texts: list[str]):
     """Encode texts into normalized embeddings."""
     model = get_embedding_model()
+    if model is None:
+        raise RuntimeError(f"Embedding model '{EMBEDDING_MODEL_NAME}' is unavailable")
 
     return model.encode(
         texts,
